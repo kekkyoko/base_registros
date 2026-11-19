@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registros del evento</title>
+<style>
+  body{margin:0;background:#f4f6f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  #gnav{position:sticky;top:0;z-index:60;height:48px;box-sizing:border-box;display:flex;align-items:stretch;gap:2px;padding:0 8px;background:#18202b;color:#fff}
+  #gnav button{border:0;background:none;color:#c9d1dc;font:inherit;font-weight:600;padding:0 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  #gnav button.active{color:#fff;border-bottom-color:#6ea0ff}
+  #gnav .sp{flex:1}
+  #gnav #upBtn{align-self:center;height:34px;border:0;border-radius:8px;background:#1f5fd1;color:#fff;padding:0 12px}
+  #gnav #upBtn:disabled{opacity:.6;cursor:wait}
+  #gst{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:70;background:#18202b;color:#fff;padding:10px 14px;border-radius:12px;max-width:calc(100% - 24px);font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  #gst[hidden]{display:none}
+  .host[hidden]{display:none}
+</style>
+</head>
+<body>
+<nav id="gnav">
+  <button data-app="lista" class="active">Asistencia</button>
+  <button data-app="salidas">Salidas</button>
+  <button data-app="staff">Staff</button>
+  <span class="sp"></span>
+  <button id="upBtn" title="Sube todo a Firebase">☁ Subir</button>
+</nav>
+<div id="gst" hidden></div>
+
+<div class="host" id="h-lista"></div>
+<div class="host" id="h-salidas" hidden></div>
+<div class="host" id="h-staff" hidden></div>
+
+<template id="tpl-lista"><style>
+  :host{
+    --bg:#f4f6f8; --card:#fff; --ink:#18202b; --muted:#667085; --line:#e4e7ec;
+    --accent:#1f5fd1; --ok:#1b7f3b; --ok-bg:#e8f6ed; --no:#c62828; --no-bg:#fdecec; --pend:#98a2b3;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  
+  .app{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.4}
+  button,input,select,textarea{font:inherit;color:inherit}
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:48px;z-index:5}
+  .wrap{max-width:860px;margin:0 auto}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px 6px;flex-wrap:wrap}
+  h1{font-size:20px;margin:0}
+  .datebox{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px}
+  .datebox input{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  .stats{display:flex;gap:8px;padding:4px 16px 10px;flex-wrap:wrap}
+  .stat{flex:1;min-width:90px;border-radius:10px;padding:6px 10px;text-align:center}
+  .stat b{display:block;font-size:20px;line-height:1.1}
+  .stat small{font-size:12px}
+  .s-ok{background:var(--ok-bg);color:var(--ok)} .s-no{background:var(--no-bg);color:var(--no)} .s-pend{background:#f2f4f7;color:#475467}
+  nav.tabs{display:flex;gap:4px;padding:0 12px}
+  nav.tabs button{flex:1;border:0;background:none;padding:10px 6px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;cursor:pointer}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{padding:14px 12px 90px}
+  .warn{background:#fff4e5;color:#8a4b00;border:1px solid #f5d199;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+  input[type=search],input[type=text],select,textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,95,209,.15)}
+  .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:hover{filter:brightness(.97)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{background:var(--no);border-color:var(--no);color:#fff}
+  .btn.ghost-danger{color:var(--no);border-color:#f1c4c4}
+  .btn.small{padding:6px 10px;font-size:14px}
+  .chips{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+  .chip span{opacity:.75;margin-left:2px}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .bulkbar{display:flex;justify-content:flex-end;margin:-4px 0 10px}
+  .team{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+  .team-h{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8f9fb;border-bottom:1px solid var(--line)}
+  .team-h .tn{font-weight:700;flex:1;min-width:0;overflow-wrap:anywhere}
+  .team-h .num{color:var(--muted);font-weight:600;font-size:13px;margin-right:4px}
+  .count{font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:#f2f4f7;color:#475467;white-space:nowrap}
+  .count.full{background:var(--ok-bg);color:var(--ok)}
+  .m{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);border-left:4px solid transparent}
+  .m:last-child{border-bottom:0}
+  .m.P{border-left-color:var(--ok);background:#fbfefc}
+  .m.F{border-left-color:var(--no);background:#fffafa}
+  .m .info{flex:1;min-width:0}
+  .m .name{font-weight:600;overflow-wrap:anywhere}
+  .m .sub{color:var(--muted);font-size:13px}
+  .mark{border:2px solid var(--line);background:var(--card);border-radius:10px;width:46px;height:42px;font-size:20px;font-weight:800;cursor:pointer;color:var(--pend)}
+  .mark.ok.on{background:var(--ok);border-color:var(--ok);color:#fff}
+  .mark.no.on{background:var(--no);border-color:var(--no);color:#fff}
+  .mark.ok:not(.on):hover{border-color:var(--ok);color:var(--ok)}
+  .mark.no:not(.on):hover{border-color:var(--no);color:var(--no)}
+  .more{border:0;background:none;font-size:20px;line-height:1;color:var(--muted);padding:6px;cursor:pointer;border-radius:8px}
+  .more:hover{background:var(--bg)}
+  .empty{text-align:center;padding:36px 16px}
+  .muted{color:var(--muted)}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;margin-bottom:12px}
+  table{border-collapse:collapse;width:100%;min-width:460px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:15px}
+  th{background:#f8f9fb;font-size:13px;color:var(--muted);font-weight:700}
+  td.n,th.n{text-align:center}
+  tr:last-child td{border-bottom:0}
+  tfoot td{font-weight:700;background:#f8f9fb}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .card h2{font-size:17px;margin:0 0 6px}
+  .card p{margin:0 0 10px}
+  .card .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  @media (max-width:560px){.card .grid{grid-template-columns:1fr}}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,calc(100% + 40px));visibility:hidden;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:flex;gap:14px;align-items:center;max-width:calc(100% - 24px);box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform .25s;z-index:20;font-size:15px}
+  #toast.show{transform:translate(-50%,0);visibility:visible}
+  #toast button{background:none;border:0;color:#9cc0ff;font-weight:700;cursor:pointer;padding:0}
+  .modal{position:fixed;inset:0;background:rgba(16,24,40,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+  .modal[hidden]{display:none}
+  .box{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto}
+  .box h3{margin:0 0 12px;font-size:18px}
+  .box label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .actions .left{margin-right:auto}
+  .err{color:var(--no);font-size:14px;margin-top:8px;min-height:1em}
+
+:host{display:block}
+</style><div class="app">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>Pasar lista</h1>
+      <label class="datebox">Fecha <input type="date" id="day"></label>
+    </div>
+    <div class="stats">
+      <div class="stat s-ok"><b id="tP">0</b><small>presentes</small></div>
+      <div class="stat s-no"><b id="tF">0</b><small>faltas</small></div>
+      <div class="stat s-pend"><b id="tS">0</b><small>sin marcar</small></div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="lista" class="active">Lista</button>
+      <button data-tab="resumen">Resumen</button>
+      <button data-tab="ajustes">Ajustes</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="warn" id="warn" hidden>No se pudo guardar en este navegador. Antes de cerrar, ve a <b>Ajustes</b> y descarga un respaldo.</div>
+
+  <section id="tab-lista">
+    <input id="q" type="search" placeholder="Buscar integrante o equipo…" autocomplete="off">
+    <div class="chips">
+      <button class="chip active" data-f="todos">Todos <span id="cA">0</span></button>
+      <button class="chip" data-f="S">Sin marcar <span id="cS">0</span></button>
+      <button class="chip" data-f="P">Presentes <span id="cP">0</span></button>
+      <button class="chip" data-f="F">Faltas <span id="cF">0</span></button>
+    </div>
+    <div class="bulkbar"><button class="btn small" id="restFalta">Poner falta a los que no se marcaron</button></div>
+    <div id="list"></div>
+  </section>
+
+  <section id="tab-resumen" hidden>
+    <p class="muted" id="rTitle" style="margin:0 0 10px"></p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th class="n">No.</th><th>Equipo</th><th class="n">Asistencia</th><th class="n">Falta</th><th class="n">Sin marcar</th></tr></thead>
+        <tbody id="rBody"></tbody>
+        <tfoot id="rFoot"></tfoot>
+      </table>
+    </div>
+    <p class="muted" style="font-size:14px;margin:-4px 2px 12px">Si una persona está en dos equipos, cuenta en los dos (por eso el total puede ser mayor que el de arriba).</p>
+    <div class="row">
+      <button class="btn" id="expRes">Descargar resumen del día (Excel)</button>
+      <button class="btn" id="expDet">Descargar lista detallada del día (Excel)</button>
+      <button class="btn" id="expAll">Descargar todos los días (Excel)</button>
+    </div>
+  </section>
+
+  <section id="tab-ajustes" hidden>
+    <div class="card">
+      <h2>Agregar integrante</h2>
+      <div class="grid">
+        <select id="aTeam"></select>
+        <input type="text" id="aName" placeholder="Nombre completo (apellidos y nombre)">
+      </div>
+      <input type="text" id="aCareer" placeholder="Carrera (opcional)" style="margin-bottom:10px">
+      <button class="btn primary" id="aAdd">Agregar al equipo</button>
+    </div>
+    <div class="card">
+      <h2>Agregar equipo</h2>
+      <div class="row" style="margin:0"><input type="text" id="tName" placeholder="Nombre del equipo" style="flex:1;min-width:200px"><button class="btn primary" id="tAdd">Agregar equipo</button></div>
+    </div>
+    <div class="card">
+      <h2>Respaldo</h2>
+      <p class="muted">Todo se guarda en este navegador, en este dispositivo, y funciona sin internet. Si se borran los datos del navegador se pierde la información, así que descarga un respaldo de vez en cuando. También sirve para pasar todo a otra computadora.</p>
+      <div class="btns">
+        <button class="btn" id="backup">Descargar respaldo</button>
+        <label class="btn">Cargar respaldo<input type="file" id="restore" accept=".json,application/json" hidden></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Borrar</h2>
+      <div class="btns">
+        <button class="btn ghost-danger" id="clearDay">Borrar la lista de este día</button>
+        <button class="btn ghost-danger" id="clearAtt">Borrar todas las listas</button>
+        <button class="btn ghost-danger" id="resetTeams">Volver a los equipos originales</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+
+</div></template>
+<template id="tpl-salidas"><style>
+  :host{
+    --bg:#f4f6f8; --card:#ffffff; --ink:#18202b; --muted:#667085; --line:#e4e7ec;
+    --accent:#1f5fd1; --accent-ink:#ffffff;
+    --out:#c62828; --out-bg:#fdecec; --in:#1b7f3b; --in-bg:#e8f6ed;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  
+  .app{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.4}
+  button,input,textarea{font:inherit;color:inherit}
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:48px;z-index:5}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px 8px;max-width:820px;margin:0 auto}
+  h1{font-size:20px;margin:0}
+  .date{color:var(--muted);font-size:14px}
+  .stat{text-align:center;background:var(--out-bg);color:var(--out);border-radius:10px;padding:6px 12px;min-width:84px}
+  .stat b{display:block;font-size:22px;line-height:1.1}
+  .stat small{font-size:12px}
+  .stat.zero{background:var(--in-bg);color:var(--in)}
+  nav.tabs{display:flex;gap:4px;max-width:820px;margin:0 auto;padding:0 12px}
+  nav.tabs button{flex:1;border:0;background:none;padding:10px 6px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;cursor:pointer}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:820px;margin:0 auto;padding:14px 12px 90px}
+  .warn{background:#fff4e5;color:#8a4b00;border:1px solid #f5d199;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+  .searchbar{display:flex;gap:8px}
+  .searchbar input{flex:1;min-width:0}
+  input[type=search],input[type=text],input[type=date],input[type=time],textarea{
+    width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);outline:none
+  }
+  input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,95,209,.15)}
+  .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 16px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:hover{filter:brightness(.97)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn.go{background:var(--out);border-color:var(--out);color:#fff;min-width:108px}
+  .btn.back{background:var(--in);border-color:var(--in);color:#fff;min-width:108px}
+  .btn.danger{background:var(--out);border-color:var(--out);color:#fff}
+  .btn.ghost-danger{color:var(--out);border-color:#f1c4c4}
+  .chips{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+  .chip span{opacity:.75;margin-left:2px}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .person{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--in);border-radius:var(--radius);padding:12px 12px 12px 14px;margin-bottom:8px}
+  .person.is-out{border-left-color:var(--out);background:#fffafa}
+  .person .info{flex:1;min-width:0}
+  .person .name{font-weight:650;font-size:17px;overflow-wrap:anywhere}
+  .person .sub{color:var(--muted);font-size:14px;margin-top:2px}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;vertical-align:1px}
+  .tag.out{background:var(--out-bg);color:var(--out)}
+  .tag.in{background:var(--in-bg);color:var(--in)}
+  .more{border:0;background:none;font-size:22px;line-height:1;color:var(--muted);padding:6px 8px;cursor:pointer;border-radius:8px}
+  .more:hover{background:var(--bg)}
+  .empty{text-align:center;padding:36px 16px;color:var(--ink)}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .row > input{flex:1;min-width:160px}
+  .summary{color:var(--muted);font-size:14px;margin:4px 2px 10px}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;margin-bottom:12px}
+  table{border-collapse:collapse;width:100%;min-width:520px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px}
+  th{background:#f8f9fb;font-size:13px;color:var(--muted);font-weight:700}
+  tr:last-child td{border-bottom:0}
+  tr.open td{background:#fffafa}
+  td.t{white-space:nowrap}
+  .link{border:0;background:none;color:var(--accent);font-weight:600;cursor:pointer;padding:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .card h2{font-size:17px;margin:0 0 6px}
+  .card p{margin:0 0 10px}
+  .card textarea{margin-bottom:10px;resize:vertical}
+  .card .btns{display:flex;gap:8px;flex-wrap:wrap}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,calc(100% + 40px));visibility:hidden;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:flex;gap:14px;align-items:center;max-width:calc(100% - 24px);box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform .25s;z-index:20;font-size:15px}
+  #toast.show{transform:translate(-50%,0);visibility:visible}
+  #toast button{background:none;border:0;color:#9cc0ff;font-weight:700;cursor:pointer;padding:0}
+  .modal{position:fixed;inset:0;background:rgba(16,24,40,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+  .modal[hidden]{display:none}
+  .box{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+  .box h3{margin:0 0 12px;font-size:18px}
+  .box label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .actions .left{margin-right:auto}
+  .err{color:var(--out);font-size:14px;margin-top:8px;min-height:1em}
+  .mini{list-style:none;padding:0;margin:8px 0 0;font-size:14px}
+  .mini li{padding:6px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+  @media (max-width:520px){
+    .btn.go,.btn.back{min-width:92px;padding:11px 12px}
+    .searchbar .btn{padding:11px 12px}
+  }
+
+:host{display:block}
+</style><div class="app">
+<header>
+  <div class="top">
+    <div>
+      <h1>Salidas y entradas</h1>
+      <div class="date" id="today"></div>
+    </div>
+    <div class="stat" id="statBox"><b id="outCount">0</b><small>afuera ahora</small></div>
+  </div>
+  <nav class="tabs">
+    <button data-tab="personas" class="active">Personas</button>
+    <button data-tab="historial">Historial</button>
+    <button data-tab="ajustes">Ajustes</button>
+  </nav>
+</header>
+
+<main>
+  <div class="warn" id="warn" hidden>No se pudo guardar en este navegador. Antes de cerrar, ve a <b>Ajustes</b> y descarga un respaldo.</div>
+
+  <section id="tab-personas">
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="Buscar por nombre o apellido…" autocomplete="off" enterkeyhint="go">
+      <button id="addBtn" class="btn primary">+ Agregar</button>
+    </div>
+    <div class="chips">
+      <button class="chip active" data-f="todos">Todos <span id="cTodos">0</span></button>
+      <button class="chip" data-f="fuera">Afuera <span id="cFuera">0</span></button>
+      <button class="chip" data-f="dentro">En el evento <span id="cDentro">0</span></button>
+    </div>
+    <div id="people"></div>
+  </section>
+
+  <section id="tab-historial" hidden>
+    <div class="row">
+      <input type="date" id="hDate">
+      <input id="hq" type="search" placeholder="Buscar en el historial…" autocomplete="off">
+    </div>
+    <div class="summary" id="hSummary"></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Nombre completo</th><th>Salida</th><th>Entrada</th><th>Tiempo afuera</th><th></th></tr></thead>
+        <tbody id="hBody"></tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn" id="expDay">Descargar este día (Excel)</button>
+      <button class="btn" id="expAll">Descargar todo (Excel)</button>
+    </div>
+  </section>
+
+  <section id="tab-ajustes" hidden>
+    <div class="card">
+      <h2>Agregar varias personas</h2>
+      <p class="muted">Pega una lista con un nombre completo por renglón. Los que ya estén no se repiten.</p>
+      <textarea id="bulk" rows="6" placeholder="Ana María López García&#10;Juan Pérez Hernández"></textarea>
+      <button class="btn primary" id="bulkAdd">Agregar a la lista</button>
+    </div>
+    <div class="card">
+      <h2>Respaldo</h2>
+      <p class="muted">Todo se guarda en este navegador, en este dispositivo, y funciona sin internet. Si se borran los datos del navegador se pierde la lista, así que descarga un respaldo de vez en cuando. También sirve para pasar la lista a otra computadora.</p>
+      <div class="btns">
+        <button class="btn" id="backup">Descargar respaldo</button>
+        <label class="btn">Cargar respaldo<input type="file" id="restore" accept=".json,application/json" hidden></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Borrar</h2>
+      <div class="btns">
+        <button class="btn ghost-danger" id="clearHist">Borrar todo el historial</button>
+        <button class="btn ghost-danger" id="clearAll">Borrar todo (personas e historial)</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+
+</div></template>
+<template id="tpl-staff"><style>
+  :host{
+    --bg:#f4f6f8; --card:#ffffff; --ink:#18202b; --muted:#667085; --line:#e4e7ec;
+    --accent:#1f5fd1; --accent-ink:#ffffff;
+    --out:#c62828; --out-bg:#fdecec; --in:#1b7f3b; --in-bg:#e8f6ed;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  
+  .app{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.4}
+  button,input,textarea{font:inherit;color:inherit}
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:48px;z-index:5}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px 8px;max-width:820px;margin:0 auto}
+  h1{font-size:20px;margin:0}
+  .date{color:var(--muted);font-size:14px}
+  .stat{text-align:center;background:var(--out-bg);color:var(--out);border-radius:10px;padding:6px 12px;min-width:84px}
+  .stat b{display:block;font-size:22px;line-height:1.1}
+  .stat small{font-size:12px}
+  .stat.zero{background:var(--in-bg);color:var(--in)}
+  nav.tabs{display:flex;gap:4px;max-width:820px;margin:0 auto;padding:0 12px}
+  nav.tabs button{flex:1;border:0;background:none;padding:10px 6px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;cursor:pointer}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:820px;margin:0 auto;padding:14px 12px 90px}
+  .warn{background:#fff4e5;color:#8a4b00;border:1px solid #f5d199;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+  .searchbar{display:flex;gap:8px}
+  .searchbar input{flex:1;min-width:0}
+  input[type=search],input[type=text],input[type=date],input[type=time],textarea{
+    width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);outline:none
+  }
+  input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,95,209,.15)}
+  .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 16px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:hover{filter:brightness(.97)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn.go{background:var(--out);border-color:var(--out);color:#fff;min-width:108px}
+  .btn.back{background:var(--in);border-color:var(--in);color:#fff;min-width:108px}
+  .btn.danger{background:var(--out);border-color:var(--out);color:#fff}
+  .btn.ghost-danger{color:var(--out);border-color:#f1c4c4}
+  .chips{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+  .chip span{opacity:.75;margin-left:2px}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .person{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--in);border-radius:var(--radius);padding:12px 12px 12px 14px;margin-bottom:8px}
+  .person.is-out{border-left-color:var(--out);background:#fffafa}
+  .person .info{flex:1;min-width:0}
+  .person .name{font-weight:650;font-size:17px;overflow-wrap:anywhere}
+  .person .sub{color:var(--muted);font-size:14px;margin-top:2px}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;vertical-align:1px}
+  .tag.out{background:var(--out-bg);color:var(--out)}
+  .tag.in{background:var(--in-bg);color:var(--in)}
+  .more{border:0;background:none;font-size:22px;line-height:1;color:var(--muted);padding:6px 8px;cursor:pointer;border-radius:8px}
+  .more:hover{background:var(--bg)}
+  .empty{text-align:center;padding:36px 16px;color:var(--ink)}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .row > input{flex:1;min-width:160px}
+  .summary{color:var(--muted);font-size:14px;margin:4px 2px 10px}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;margin-bottom:12px}
+  table{border-collapse:collapse;width:100%;min-width:520px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px}
+  th{background:#f8f9fb;font-size:13px;color:var(--muted);font-weight:700}
+  tr:last-child td{border-bottom:0}
+  tr.open td{background:#fffafa}
+  td.t{white-space:nowrap}
+  .link{border:0;background:none;color:var(--accent);font-weight:600;cursor:pointer;padding:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .card h2{font-size:17px;margin:0 0 6px}
+  .card p{margin:0 0 10px}
+  .card textarea{margin-bottom:10px;resize:vertical}
+  .card .btns{display:flex;gap:8px;flex-wrap:wrap}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,calc(100% + 40px));visibility:hidden;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:flex;gap:14px;align-items:center;max-width:calc(100% - 24px);box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform .25s;z-index:20;font-size:15px}
+  #toast.show{transform:translate(-50%,0);visibility:visible}
+  #toast button{background:none;border:0;color:#9cc0ff;font-weight:700;cursor:pointer;padding:0}
+  .modal{position:fixed;inset:0;background:rgba(16,24,40,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+  .modal[hidden]{display:none}
+  .box{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+  .box h3{margin:0 0 12px;font-size:18px}
+  .box label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .actions .left{margin-right:auto}
+  .err{color:var(--out);font-size:14px;margin-top:8px;min-height:1em}
+  .mini{list-style:none;padding:0;margin:8px 0 0;font-size:14px}
+  .mini li{padding:6px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+  @media (max-width:520px){
+    .btn.go,.btn.back{min-width:92px;padding:11px 12px}
+    .searchbar .btn{padding:11px 12px}
+  }
+
+  .stat{background:var(--in-bg);color:var(--in)} .stat.zero{background:#f2f4f7;color:#475467}
+  .tag.out{background:var(--in-bg);color:var(--in)} .tag.in{background:#f2f4f7;color:#475467}
+  .btn.go{background:var(--in);border-color:var(--in);color:#fff} .btn.back{background:var(--out);border-color:var(--out);color:#fff}
+
+:host{display:block}
+</style><div class="app">
+<header>
+  <div class="top">
+    <div>
+      <h1>Staff · Entrada y salida</h1>
+      <div class="date" id="today"></div>
+    </div>
+    <div class="stat" id="statBox"><b id="outCount">0</b><small>en turno ahora</small></div>
+  </div>
+  <nav class="tabs">
+    <button data-tab="personas" class="active">Personas</button>
+    <button data-tab="historial">Historial</button>
+    <button data-tab="ajustes">Ajustes</button>
+  </nav>
+</header>
+
+<main>
+  <div class="warn" id="warn" hidden>No se pudo guardar en este navegador. Antes de cerrar, ve a <b>Ajustes</b> y descarga un respaldo.</div>
+
+  <section id="tab-personas">
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="Buscar por nombre o apellido…" autocomplete="off" enterkeyhint="go">
+      <button id="addBtn" class="btn primary">+ Agregar</button>
+    </div>
+    <div class="chips">
+      <button class="chip active" data-f="todos">Todos <span id="cTodos">0</span></button>
+      <button class="chip" data-f="fuera">En turno <span id="cFuera">0</span></button>
+      <button class="chip" data-f="dentro">Fuera de turno <span id="cDentro">0</span></button>
+    </div>
+    <div id="people"></div>
+  </section>
+
+  <section id="tab-historial" hidden>
+    <div class="row">
+      <input type="date" id="hDate">
+      <input id="hq" type="search" placeholder="Buscar en el historial…" autocomplete="off">
+    </div>
+    <div class="summary" id="hSummary"></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Nombre completo</th><th>Entrada</th><th>Salida</th><th>Tiempo en turno</th><th></th></tr></thead>
+        <tbody id="hBody"></tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn" id="expDay">Descargar este día (Excel)</button>
+      <button class="btn" id="expAll">Descargar todo (Excel)</button>
+    </div>
+  </section>
+
+  <section id="tab-ajustes" hidden>
+    <div class="card">
+      <h2>Agregar varias personas de staff</h2>
+      <p class="muted">Pega una lista con un nombre completo por renglón. Los que ya estén no se repiten.</p>
+      <textarea id="bulk" rows="6" placeholder="Ana María López García&#10;Juan Pérez Hernández"></textarea>
+      <button class="btn primary" id="bulkAdd">Agregar a la lista</button>
+    </div>
+    <div class="card">
+      <h2>Respaldo</h2>
+      <p class="muted">Todo se guarda en este navegador, en este dispositivo, y funciona sin internet. Si se borran los datos del navegador se pierde la lista, así que descarga un respaldo de vez en cuando. También sirve para pasar la lista a otra computadora.</p>
+      <div class="btns">
+        <button class="btn" id="backup">Descargar respaldo</button>
+        <label class="btn">Cargar respaldo<input type="file" id="restore" accept=".json,application/json" hidden></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Borrar</h2>
+      <div class="btns">
+        <button class="btn ghost-danger" id="clearHist">Borrar todo el historial</button>
+        <button class="btn ghost-danger" id="clearAll">Borrar todo (personas e historial)</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+
+</div></template>
+
+<script>
+document.querySelectorAll('.host').forEach(h=>{
+  h.attachShadow({mode:'open'}).appendChild(document.getElementById('tpl-'+h.id.slice(2)).content.cloneNode(true));
+});
+document.querySelectorAll('#gnav [data-app]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#gnav [data-app]').forEach(x=>x.classList.toggle('active',x===b));
+  document.querySelectorAll('.host').forEach(h=>{h.hidden=h.id!=='h-'+b.dataset.app});
+}));
+</script>
+<script>
+
+(function(root){
+  const $ = s => root.querySelector(s);
+  const KEY = 'pasar-lista-v1';
+  const ORIGINAL = [{"name": "Electromega", "members": [["López Salinas Fernando Daniel", "Ingeniería en Sistemas Computacionales"], ["García Torres Luis Ángel", "Ingeniería en Sistemas Computacionales"], ["Velázquez Rodríguez Fanny Aline", "Ingeniería en Sistemas Computacionales"], ["López Reséndiz Johan", "Ingeniería en Sistemas Computacionales"], ["Alcántara Fabián Belinda", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Vortex", "members": [["Gamez Garcia Edrick", "Ingeniería en Sistemas Computacionales"], ["Milagros Fernanda Villarreal Coronado", "Ingeniería en Sistemas Computacionales"], ["Villarreal Céspedes Josué Jonathan", "Ingeniería en Sistemas Computacionales"], ["Montecinos Falfan Jehú Israel", "Ingeniería en Sistemas Computacionales"], ["Palafox Vera Dulce Belen", "Ingeniería en Gestión Empresarial"]]}, {"name": "MVP Factory", "members": [["Villanueva Fierros Kendy", "Ingeniería en Sistemas Computacionales"], ["Hernández Barroso Kevin Anthony", "Ingeniería en Sistemas Computacionales"], ["Alonso Vázquez Jeshua Jafet", "Ingeniería en Gestión Empresarial"], ["Sarabia Cruz Estrella Arisbeth", "Ingeniería en Gestión Empresarial"], ["Villachavez Quiroz Oscar Adrián", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Grafitos Dev", "members": [["Lopez Arcos Diego Isaac", "Ingeniería en Sistemas Computacionales"], ["Contreras Ramírez Dulce Sarai", "Ingeniería en Sistemas Computacionales"], ["Gallardo Mendieta Anabel", "Ingeniería en Sistemas Computacionales"], ["Apreza Flores Ricardo", "Ingeniería Mecatrónica"], ["Anzures Sánchez Jesús Manuel", "Ingeniería en Sistemas Computacionales"]]}, {"name": "CodeTec 2.0", "members": [["Axel Castillo Nova", "Ingeniería en Sistemas Computacionales"], ["Vidal Martinez Bryan Emmanuel", "Ingeniería en Sistemas Computacionales"], ["Chávez Morales Karla Sofía", "Ingeniería en Gestión Empresarial"], ["Muñiz Mundo Angel Sebastián", "Ingeniería en Sistemas Computacionales"], ["Garcia Del Manzano Pedro", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Stardust Crusader", "members": [["Vera Chávez Steiguer", "Ingeniería en Sistemas Computacionales"], ["Jaimes Vega Alexis Josué", "Ingeniería en Sistemas Computacionales"], ["América Belén Turijan Huerta", "Ingeniería Industrial"], ["Carrion Rivera Neptali Gabriel", "Ingeniería en Sistemas Computacionales"], ["Platón Hernández Carlos Alberto", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Equipo SinKO", "members": [["Jiménez Solano Emiano", "Ingeniería en Sistemas Computacionales"], ["Jiménez Almeraya Yahir", "Ingeniería en Sistemas Computacionales"], ["Madiam Issui Barragán Vásquez", "Ingeniería en Sistemas Computacionales"], ["Carrizal García Alexandra", "Ingeniería Mecatrónica"], ["Gutiérrez González Ariel", "Contador Público"]]}, {"name": "X-FORCE", "members": [["Vázquez Arcos José Fransisco", "Ingeniería Industrial"], ["Valero Cadenas Itzel", "Ingeniería en Sistemas Computacionales"], ["Mancilla Mejia Shemejah", "Ingeniería en Sistemas Computacionales"], ["Mejia Ortega Jesus", "Ingeniería en Sistemas Computacionales"], ["Vázquez Aroche Jared Araham", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Nexus", "members": [["Valle Salvador Ángel Eduardo", "Ingeniería Electrónica"], ["García Muñoz Jonathan Israel", "Ingeniería Mecatrónica"], ["Roque Gonzalez Andrés Nohe", "Ingeniería Electrónica"], ["Gerardo Manuel Antunez Eligio", "Ingeniería Civil"], ["Libni Gemali González López", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Los Compiladores", "members": [["Martínez Bustos Mariana", "Ingeniería en Sistemas Computacionales"], ["De la Concha Villavicencio Roberto", "Contador Público"], ["Rivera Camacho Jose Gabriel", "Contador Público"], ["Martínez Rayo Kevin Esau", "Ingeniería en Sistemas Computacionales"], ["Rocha Sánchez Oscar", "Ingeniería en Sistemas Computacionales"]]}, {"name": "LH", "members": [["Gil Cano Diana Belen", "Ingeniería en Sistemas Computacionales"], ["Anzurez Espino Monica Paola", "Ingeniería en Sistemas Computacionales"], ["Pérez Espino Damarys Renata", "Ingeniería en Sistemas Computacionales"], ["Sosa Xochimanca Pablo César", "Ingeniería en Sistemas Computacionales"], ["Berlanga Cadena Angel Jesús", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Null RAIDerS", "members": [["Saavedra Miguel Alondra Graciela", "Ingeniería en Sistemas Computacionales"], ["Sanchez Martinez Ruben", "Ingeniería en Sistemas Computacionales"], ["Ortiz Flores Dulce Sarahi", "Ingeniería en Sistemas Computacionales"], ["Campis Barreto Itamar", "Ingeniería en Sistemas Computacionales"], ["Rivera Flores Dana Valeria", "Ingeniería en Sistemas Computacionales"]]}, {"name": "LazyPeople", "members": [["Reyes Mejia Alexander", "Ingeniería en Sistemas Computacionales"], ["Pinzón García Endor", "Ingeniería en Sistemas Computacionales"], ["Vázquez Braco Jazmín Quetzalli", "Ingeniería en Sistemas Computacionales"], ["Zapotitla García Jorge", "Ingeniería en Sistemas Computacionales"], ["Camacho Mejia Jose Alejandro", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Los Astrohack", "members": [["Plascencia Mora David Emiliano", "No indicada"], ["Aldana Ramírez Karol Esther", "No indicada"], ["Campos Nopio Ximena", "No indicada"], ["Del Rosario Quevedo Eugenio Gibet", "No indicada"], ["Rendon Sauza Fernando Isaac", "No indicada"]]}, {"name": "Hodwarse", "members": [["Fonseca Bravo José Noé", "Ingeniería en Sistemas Computacionales"], ["Gonzalez Flores Alexis", "Ingeniería en Sistemas Computacionales"], ["Gonzales Cuevas Ruben Axel", "Ingeniería en Sistemas Computacionales"], ["Romero Vidal Angel Ivan", "Ingeniería en Sistemas Computacionales"], ["Muñoz Guadarrama Carolina", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Codecraft", "members": [["Diego Gael Rosas Vazquez", "Ingeniería en Sistemas Computacionales"], ["Santoyo Anzures Samantha Lizbeth", "Ingeniería en Sistemas Computacionales"], ["Shyrlin Alizze Cirilo Policarpo", "Ingeniería en Sistemas Computacionales"], ["Huacre Molina Rodrigo Yair", "Ingeniería en Gestión Empresarial"], ["Mendoza Maldonado Jared", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Quantum Coders", "members": [["Gómez Guerrero Orlando Hernán", "Ingeniería en Sistemas Computacionales"], ["Luis Angel Hernandez Ramirez", "Ingeniería en Sistemas Computacionales"], ["Juarez Palma Missael", "Ingeniería en Sistemas Computacionales"], ["Estrada Cuevas Aldo Emmanuel", "Ingeniería en Sistemas Computacionales"], ["Martínez Azalá Rubi Fernanda", "Contador Público"]]}, {"name": "Bit Locker", "members": [["López Dionicio Jesús Francisco", "Ingeniería en Sistemas Computacionales"], ["Hernández Núñez Miguel Antonio", "Ingeniería en Sistemas Computacionales"], ["Torres Cheron Fernando", "Ingeniería en Sistemas Computacionales"], ["García Monroy Yesenia Lizbeth", "Ingeniería en Sistemas Computacionales"], ["Rodríguez López Carlos Jair", "Ingeniería en Sistemas Computacionales"]]}, {"name": "CODESMOKERS", "members": [["Presas Guevara Tommy Manuel", "Ingeniería Mecatrónica"], ["Sanchez Miranda Alan Emiliano", "Ingeniería en Sistemas Computacionales"], ["Montiel Naranjo Marco Antonio", "Ingeniería en Sistemas Computacionales"], ["Prado Aguilar Benjny Ramon", "Ingeniería en Sistemas Computacionales"], ["Marcelino Morales Alisandro", "Ingeniería en Sistemas Computacionales"]]}, {"name": "Ctrl Zetas", "members": [["Annali Rojas Cortes", "No indicada"], ["Vazquez Arteaga Yareli Daniela", "No indicada"], ["Molina Velasco Perla Lizeth", "No indicada"], ["Vargas Ruiz Estrella", "No indicada"], ["Gómez Nava Mayra Azucena", "No indicada"]]}, {"name": "MINDS CODING", "members": [["Molina Martinez Angela Natasha", "Ingeniería en Sistemas Computacionales"], ["Estrada Hidalgo Ángel Adrián", "Ingeniería en Sistemas Computacionales"], ["Flores Vega Emmanuel", "Ingeniería en Sistemas Computacionales"], ["Antunez Eligio Jose Manuel", "No indicada"], ["Castillo Fraijo Jaime Zoram", "No indicada"]]}, {"name": "IZANAMI", "members": [["Tecla Martinez Marjori Yedani", "Ingeniería en Sistemas Computacionales"], ["Villegas Santana Edwin Michell", "Ingeniería en Sistemas Computacionales"], ["Rojas López Rocio Itzel", "Ingeniería en Gestión Empresarial"], ["Santa Ana Rodríguez Zareth Otoniel", "Ingeniería en Sistemas Computacionales"], ["Flores Vilchis Ángel David", "Ingeniería en Gestión Empresarial"]]}, {"name": "AMATERASU", "members": [["Cruz Castillo Lorena Isabel", "Ingeniería en Sistemas Computacionales"], ["Herrera Medina Karen", "Ingeniería en Sistemas Computacionales"], ["Jurado Noriega Saúl", "Ingeniería en Sistemas Computacionales"], ["Morales Martínez Andrea", "Ingeniería en Gestión Empresarial"], ["Martínez Dávila Alan Raúl", "Ingeniería en Gestión Empresarial"]]}, {"name": "Legión Tec", "members": [["Cortés Aguilar Hugo", "Ingeniería en Sistemas Computacionales"], ["Cruz Hernández Irvin", "Ingeniería en Sistemas Computacionales"], ["Cuenca Flores Verónica Yazmín", "Contador Público"], ["Pedro Abel Juárez García", "No indicada"], ["Axel Leandro Coria Venegas", "No indicada"]]}, {"name": "Java Code", "members": [["Vázquez Rodríguez Kevin Fernando", "No indicada"], ["Rodrigo Camberos Oliver Uriel", "No indicada"], ["Shyrlin Alizze Cirilo Policarpo", "Ingeniería en Sistemas Computacionales"], ["Lima Contreras Alejandro", "Contador Público"], ["Sotelo Salazar Fernando", "Contador Público"]]}, {"name": "Lux Nexus", "members": [["Morellano Evaristo Abrham", "No indicada"], ["Campos Rodriguez Yelzy", "No indicada"], ["Alderente Lopez Luis Mayen", "No indicada"], ["Ayala Aldana Josue", "No indicada"], ["Tlatelpa Morales Raul Sabino", "No indicada"]]}];
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const clean = s => String(s).replace(/\s+/g, ' ').trim();
+  const pad = n => String(n).padStart(2, '0');
+  const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); };
+  const fmtT = iso => iso ? new Date(iso).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '';
+  const fmtDay = k => { const [y, m, d] = k.split('-').map(Number); const s = new Date(y, m - 1, d).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const matches = (text, q) => { const t = norm(q).split(' ').filter(Boolean); const n = norm(text); return t.every(x => n.includes(x)); };
+
+  function fromOriginal(){
+    return ORIGINAL.map(t => ({ id: uid(), name: t.name, members: t.members.map(m => ({ id: uid(), name: m[0], career: m[1] })) }));
+  }
+
+  let state = null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const d = JSON.parse(raw); if (d && Array.isArray(d.teams) && d.att) state = d; }
+  } catch (e) { $('#warn').hidden = false; }
+  if (!state) state = { teams: fromOriginal(), att: {} };
+
+  function save(){
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { $('#warn').hidden = false; }
+  }
+  save();
+
+  let filter = 'todos';
+  const curDay = () => $('#day').value || dayKey(new Date());
+  const dayAtt = (create) => { const k = curDay(); if (!state.att[k] && create) state.att[k] = {}; return state.att[k] || {}; };
+  const statusOf = name => { const a = dayAtt(false)[norm(name)]; return a ? a.s : 'S'; };
+
+  // Personas únicas (una persona puede estar en dos equipos)
+  function uniquePeople(){
+    const map = new Map();
+    state.teams.forEach(t => t.members.forEach(m => { if (!map.has(norm(m.name))) map.set(norm(m.name), m.name); }));
+    return map;
+  }
+
+  // ---------- Avisos y ventanas ----------
+  let toastTimer;
+  function toast(msg, undo){
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>` + (undo ? '<button type="button">Deshacer</button>' : '');
+    if (undo) t.querySelector('button').onclick = () => { undo(); save(); renderAll(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
+  }
+  function modal(html){ $('#modalBox').innerHTML = html; $('#modal').hidden = false; return $('#modalBox'); }
+  function closeModal(){ $('#modal').hidden = true; $('#modalBox').innerHTML = ''; }
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+  function confirmBox(msg, okLabel, cb){
+    const b = modal(`<h3>¿Seguro?</h3><p>${esc(msg)}</p><div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn danger" id="okC">${esc(okLabel)}</button></div>`);
+    b.querySelector('#okC').onclick = () => { closeModal(); cb(); };
+  }
+
+  // ---------- Totales ----------
+  function renderStats(){
+    const ppl = uniquePeople();
+    let P = 0, F = 0;
+    ppl.forEach((name, key) => { const s = statusOf(name); if (s === 'P') P++; else if (s === 'F') F++; });
+    const S = ppl.size - P - F;
+    $('#tP').textContent = P; $('#tF').textContent = F; $('#tS').textContent = S;
+    $('#cA').textContent = ppl.size; $('#cP').textContent = P; $('#cF').textContent = F; $('#cS').textContent = S;
+  }
+
+  // ---------- Lista ----------
+  function renderList(){
+    const q = $('#q').value;
+    let html = '';
+    state.teams.forEach((t, i) => {
+      const teamHit = q.trim() && matches(t.name, q);
+      const members = t.members.filter(m => (!q.trim() || teamHit || matches(m.name, q)) && (filter === 'todos' || statusOf(m.name) === filter));
+      if (!members.length && (q.trim() || filter !== 'todos')) return;
+      const nP = t.members.filter(m => statusOf(m.name) === 'P').length;
+      html += `<div class="team">
+        <div class="team-h">
+          <div class="tn"><span class="num">${i + 1}.</span>${esc(t.name)}</div>
+          <span class="count ${t.members.length && nP === t.members.length ? 'full' : ''}">${nP}/${t.members.length}</span>
+          <button class="btn small" data-act="allP" data-t="${t.id}" title="Marcar a todo el equipo como presente">Todos ✓</button>
+          <button class="more" data-act="team" data-t="${t.id}" aria-label="Opciones del equipo" title="Opciones del equipo">⋯</button>
+        </div>`;
+      if (!t.members.length) html += `<div class="m"><div class="info muted">Sin integrantes. Agrégalos en Ajustes.</div></div>`;
+      members.forEach(m => {
+        const s = statusOf(m.name);
+        const a = dayAtt(false)[norm(m.name)];
+        const sub = [m.career && m.career !== 'No indicada' ? esc(m.career) : '', s === 'P' && a ? 'Presente · ' + fmtT(a.t) : s === 'F' ? 'Falta' : ''].filter(Boolean).join(' · ');
+        html += `<div class="m ${s}">
+          <div class="info"><div class="name">${esc(m.name)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
+          <button class="more" data-act="member" data-t="${t.id}" data-m="${m.id}" aria-label="Opciones" title="Opciones">⋯</button>
+          <button class="mark ok ${s === 'P' ? 'on' : ''}" data-act="P" data-t="${t.id}" data-m="${m.id}" title="Presente" aria-label="Presente">✓</button>
+          <button class="mark no ${s === 'F' ? 'on' : ''}" data-act="F" data-t="${t.id}" data-m="${m.id}" title="Falta" aria-label="Falta">✗</button>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    if (!html) html = `<div class="empty muted">No hay resultados${q.trim() ? ` para «${esc(q.trim())}»` : ''}.</div>`;
+    $('#list').innerHTML = html;
+  }
+
+  const findTeam = id => state.teams.find(t => t.id === id);
+  const findMember = (tid, mid) => { const t = findTeam(tid); return t ? t.members.find(m => m.id === mid) : null; };
+
+  function setStatus(name, s){
+    const att = dayAtt(true), k = norm(name);
+    const prev = att[k] ? { ...att[k] } : null;
+    if (att[k] && att[k].s === s) delete att[k];
+    else att[k] = { s, t: new Date().toISOString() };
+    return () => { if (prev) dayAtt(true)[k] = prev; else delete dayAtt(true)[k]; };
+  }
+
+  $('#list').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act, t = findTeam(b.dataset.t);
+    if (!t) return;
+    if (act === 'P' || act === 'F') {
+      const m = findMember(b.dataset.t, b.dataset.m);
+      if (!m) return;
+      setStatus(m.name, act); save(); renderAll();
+    } else if (act === 'allP') {
+      const att = dayAtt(true);
+      const before = JSON.parse(JSON.stringify(att));
+      let n = 0;
+      t.members.forEach(m => { const k = norm(m.name); if (!att[k] || att[k].s !== 'P') { att[k] = { s: 'P', t: new Date().toISOString() }; n++; } });
+      save(); renderAll();
+      toast(n ? `${t.name}: ${n} marcados como presentes` : `${t.name} ya estaba completo`, n ? () => { state.att[curDay()] = before; } : null);
+    } else if (act === 'member') {
+      openMemberModal(t, findMember(b.dataset.t, b.dataset.m));
+    } else if (act === 'team') {
+      openTeamModal(t);
+    }
+  });
+  $('#q').addEventListener('input', renderList);
+  root.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    filter = c.dataset.f;
+    root.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === c));
+    renderList();
+  }));
+  $('#restFalta').addEventListener('click', () => {
+    const ppl = uniquePeople();
+    const pend = [...ppl.values()].filter(n => statusOf(n) === 'S');
+    if (!pend.length) { toast('No hay nadie sin marcar'); return; }
+    confirmBox(`Se pondrá falta a ${pend.length} ${pend.length === 1 ? 'persona que no se ha marcado' : 'personas que no se han marcado'} en este día.`, 'Poner faltas', () => {
+      const att = dayAtt(true);
+      const before = JSON.parse(JSON.stringify(att));
+      pend.forEach(n => { att[norm(n)] = { s: 'F', t: new Date().toISOString() }; });
+      save(); renderAll();
+      toast(`${pend.length} faltas registradas`, () => { state.att[curDay()] = before; });
+    });
+  });
+
+  function teamOptions(selId){
+    return state.teams.map((t, i) => `<option value="${t.id}" ${t.id === selId ? 'selected' : ''}>${i + 1}. ${esc(t.name)}</option>`).join('');
+  }
+
+  function openMemberModal(t, m){
+    if (!m) return;
+    const b = modal(`<h3>Editar integrante</h3>
+      <label for="eName">Nombre completo</label>
+      <input type="text" id="eName" value="${esc(m.name)}" autocomplete="off">
+      <label for="eCareer">Carrera</label>
+      <input type="text" id="eCareer" value="${esc(m.career || '')}" autocomplete="off">
+      <label for="eTeam">Equipo</label>
+      <select id="eTeam">${teamOptions(t.id)}</select>
+      <div class="err" id="eErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="eDel">Quitar del equipo</button>
+        <button class="btn" data-close>Cancelar</button>
+        <button class="btn primary" id="eSave">Guardar</button>
+      </div>`);
+    b.querySelector('#eSave').onclick = () => {
+      const name = clean(b.querySelector('#eName').value), career = clean(b.querySelector('#eCareer').value) || 'No indicada';
+      const toT = findTeam(b.querySelector('#eTeam').value);
+      if (!name) { b.querySelector('#eErr').textContent = 'Escribe el nombre.'; return; }
+      if (toT.members.some(x => x.id !== m.id && norm(x.name) === norm(name))) { b.querySelector('#eErr').textContent = 'Ya hay alguien con ese nombre en ese equipo.'; return; }
+      const oldK = norm(m.name), newK = norm(name);
+      if (oldK !== newK) {
+        const stillUsed = state.teams.some(tt => tt.members.some(x => x.id !== m.id && norm(x.name) === oldK));
+        Object.values(state.att).forEach(day => { if (day[oldK] && !day[newK]) { day[newK] = day[oldK]; if (!stillUsed) delete day[oldK]; } });
+      }
+      m.name = name; m.career = career;
+      if (toT.id !== t.id) { t.members = t.members.filter(x => x.id !== m.id); toT.members.push(m); }
+      save(); closeModal(); renderAll(); toast('Integrante actualizado');
+    };
+    b.querySelector('#eDel').onclick = () => confirmBox(`Se quitará a ${m.name} del equipo ${t.name}. Las listas de días anteriores se conservan en las descargas.`, 'Quitar', () => {
+      t.members = t.members.filter(x => x.id !== m.id);
+      save(); renderAll(); toast(`Se quitó a ${m.name}`);
+    });
+  }
+
+  function openTeamModal(t){
+    const b = modal(`<h3>Editar equipo</h3>
+      <label for="tnName">Nombre del equipo</label>
+      <input type="text" id="tnName" value="${esc(t.name)}" autocomplete="off">
+      <div class="err" id="tnErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="tnDel">Borrar equipo</button>
+        <button class="btn" data-close>Cancelar</button>
+        <button class="btn primary" id="tnSave">Guardar</button>
+      </div>`);
+    b.querySelector('#tnSave').onclick = () => {
+      const v = clean(b.querySelector('#tnName').value);
+      if (!v) { b.querySelector('#tnErr').textContent = 'Escribe el nombre.'; return; }
+      t.name = v; save(); closeModal(); renderAll(); toast('Equipo actualizado');
+    };
+    b.querySelector('#tnDel').onclick = () => confirmBox(`Se borrará el equipo ${t.name} con sus ${t.members.length} integrantes.`, 'Borrar equipo', () => {
+      state.teams = state.teams.filter(x => x.id !== t.id);
+      save(); renderAll(); toast(`Se borró ${t.name}`);
+    });
+  }
+
+  // ---------- Resumen ----------
+  function teamCounts(t){
+    let P = 0, F = 0;
+    t.members.forEach(m => { const s = statusOf(m.name); if (s === 'P') P++; else if (s === 'F') F++; });
+    return { P, F, S: t.members.length - P - F };
+  }
+  function renderResumen(){
+    $('#rTitle').textContent = fmtDay(curDay());
+    let tp = 0, tf = 0, ts = 0;
+    $('#rBody').innerHTML = state.teams.map((t, i) => {
+      const c = teamCounts(t); tp += c.P; tf += c.F; ts += c.S;
+      return `<tr><td class="n">${i + 1}</td><td>${esc(t.name)}</td><td class="n">${c.P}</td><td class="n">${c.F}</td><td class="n">${c.S}</td></tr>`;
+    }).join('');
+    $('#rFoot').innerHTML = `<tr><td></td><td>Total</td><td class="n">${tp}</td><td class="n">${tf}</td><td class="n">${ts}</td></tr>`;
+  }
+
+  // ---------- Descargas ----------
+  function download(content, name, type){
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function csvCell(v){ v = String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  const toCSV = rows => '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const label = s => s === 'P' ? 'Presente' : s === 'F' ? 'Falta' : 'Sin marcar';
+  function detailRows(k){
+    const att = state.att[k] || {};
+    const rows = [];
+    state.teams.forEach((t, i) => t.members.forEach(m => {
+      const a = att[norm(m.name)];
+      rows.push([k, i + 1, t.name, m.name, m.career || '', label(a ? a.s : 'S'), a && a.s === 'P' ? fmtT(a.t) : '']);
+    }));
+    return rows;
+  }
+  $('#expRes').addEventListener('click', () => {
+    const k = curDay();
+    const rows = [['Fecha', 'No.', 'Equipo', 'Asistencia', 'Falta', 'Sin marcar']];
+    state.teams.forEach((t, i) => { const c = teamCounts(t); rows.push([k, i + 1, t.name, c.P, c.F, c.S]); });
+    download(toCSV(rows), `resumen-asistencia-${k}.csv`, 'text/csv;charset=utf-8');
+  });
+  $('#expDet').addEventListener('click', () => {
+    const k = curDay();
+    download(toCSV([['Fecha', 'No.', 'Equipo', 'Nombre completo', 'Carrera', 'Asistencia', 'Hora']].concat(detailRows(k))), `lista-${k}.csv`, 'text/csv;charset=utf-8');
+  });
+  $('#expAll').addEventListener('click', () => {
+    const days = Object.keys(state.att).filter(k => Object.keys(state.att[k]).length).sort();
+    if (!days.length) { toast('Todavía no hay listas guardadas'); return; }
+    let rows = [['Fecha', 'No.', 'Equipo', 'Nombre completo', 'Carrera', 'Asistencia', 'Hora']];
+    days.forEach(k => { rows = rows.concat(detailRows(k)); });
+    download(toCSV(rows), `listas-todos-los-dias-${dayKey(new Date())}.csv`, 'text/csv;charset=utf-8');
+  });
+
+  // ---------- Ajustes ----------
+  function renderAjustes(){ const sel = $('#aTeam').value; $('#aTeam').innerHTML = teamOptions(sel); }
+  $('#aAdd').addEventListener('click', () => {
+    const t = findTeam($('#aTeam').value), name = clean($('#aName').value);
+    if (!t) { toast('Primero agrega un equipo'); return; }
+    if (!name) { toast('Escribe el nombre'); return; }
+    if (t.members.some(m => norm(m.name) === norm(name))) { toast('Esa persona ya está en ese equipo'); return; }
+    t.members.push({ id: uid(), name, career: clean($('#aCareer').value) || 'No indicada' });
+    $('#aName').value = ''; $('#aCareer').value = '';
+    save(); renderAll(); toast(`${name} agregado a ${t.name}`);
+  });
+  $('#tAdd').addEventListener('click', () => {
+    const v = clean($('#tName').value);
+    if (!v) { toast('Escribe el nombre del equipo'); return; }
+    const t = { id: uid(), name: v, members: [] };
+    state.teams.push(t); $('#tName').value = '';
+    save(); renderAll(); $('#aTeam').value = t.id; toast(`Equipo ${v} agregado`);
+  });
+  $('#backup').addEventListener('click', () => {
+    download(JSON.stringify({ app: 'pasar-lista', version: 1, savedAt: new Date().toISOString(), ...state }, null, 2), `respaldo-lista-${dayKey(new Date())}.json`, 'application/json');
+  });
+  $('#restore').addEventListener('change', e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let d; try { d = JSON.parse(rd.result); } catch (err) { toast('Ese archivo no es un respaldo válido'); return; }
+      if (!d || !Array.isArray(d.teams) || typeof d.att !== 'object') { toast('Ese archivo no es un respaldo válido'); return; }
+      confirmBox(`El respaldo tiene ${d.teams.length} equipos y ${Object.keys(d.att).length} días de lista. Reemplazará lo que hay ahora.`, 'Cargar respaldo', () => {
+        state = { teams: d.teams, att: d.att }; save(); renderAll(); toast('Respaldo cargado');
+      });
+    };
+    rd.readAsText(f);
+  });
+  $('#clearDay').addEventListener('click', () => confirmBox(`Se borrará la lista del ${fmtDay(curDay())}.`, 'Borrar', () => { delete state.att[curDay()]; save(); renderAll(); toast('Lista del día borrada'); }));
+  $('#clearAtt').addEventListener('click', () => confirmBox('Se borrarán las listas de todos los días. Los equipos se quedan.', 'Borrar listas', () => { state.att = {}; save(); renderAll(); toast('Listas borradas'); }));
+  $('#resetTeams').addEventListener('click', () => confirmBox('Los equipos volverán a como venían en el archivo, y se perderán los cambios que hiciste a equipos e integrantes. Las listas se conservan.', 'Restaurar equipos', () => { state.teams = fromOriginal(); save(); renderAll(); toast('Equipos restaurados'); }));
+
+  // ---------- Pestañas y fecha ----------
+  root.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+    root.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    ['lista', 'resumen', 'ajustes'].forEach(t => { $('#tab-' + t).hidden = t !== b.dataset.tab; });
+    renderAll();
+  }));
+  $('#day').value = dayKey(new Date());
+  $('#day').addEventListener('change', () => { if (!$('#day').value) $('#day').value = dayKey(new Date()); renderAll(); });
+
+  function renderAll(){ renderStats(); renderList(); renderResumen(); renderAjustes(); }
+  renderAll();
+})(document.getElementById('h-lista').shadowRoot);
+</script>
+<script>
+
+(function(root){
+  const $ = s => root.querySelector(s);
+  const KEY = 'lista-salidas-regresos-v1';
+  let state = { people: [], records: [] };
+  let filter = 'todos';
+
+  // ---------- Guardado ----------
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.people) && Array.isArray(d.records)) state = d;
+    }
+  } catch (e) { $('#warn').hidden = false; }
+
+  function save(){
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { $('#warn').hidden = false; }
+  }
+
+  // ---------- Utilidades ----------
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const matches = (name, q) => {
+    const tokens = norm(q).split(' ').filter(Boolean);
+    const n = norm(name);
+    return tokens.every(t => n.includes(t));
+  };
+  const pad = n => String(n).padStart(2, '0');
+  const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); };
+  const fmtT = iso => iso ? new Date(iso).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '—';
+  const hhmm = iso => { const d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const setTime = (baseIso, t) => { const d = new Date(baseIso); const [h, m] = t.split(':').map(Number); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  const mins = (a, b) => Math.max(0, Math.round(((b ? new Date(b) : new Date()) - new Date(a)) / 60000));
+  const dur = (a, b) => { const t = mins(a, b); const h = Math.floor(t / 60), m = t % 60; return h ? `${h} h ${m} min` : `${m} min`; };
+  const getP = id => state.people.find(p => p.id === id);
+  const openRecord = pid => state.records.find(r => r.personId === pid && !r.back);
+  const canHover = window.matchMedia && matchMedia('(hover: hover)').matches;
+
+  // ---------- Avisos y ventanas ----------
+  let toastTimer;
+  function toast(msg, undo){
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>` + (undo ? '<button type="button">Deshacer</button>' : '');
+    if (undo) t.querySelector('button').onclick = () => { undo(); save(); renderAll(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
+  }
+  function modal(html){ $('#modalBox').innerHTML = html; $('#modal').hidden = false; return $('#modalBox'); }
+  function closeModal(){ $('#modal').hidden = true; $('#modalBox').innerHTML = ''; }
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+  function confirmBox(msg, okLabel, cb){
+    const b = modal(`<h3>¿Seguro?</h3><p>${esc(msg)}</p><div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn danger" id="okC">${esc(okLabel)}</button></div>`);
+    b.querySelector('#okC').onclick = () => { closeModal(); cb(); };
+  }
+
+  // ---------- Encabezado ----------
+  function renderHeader(){
+    const s = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('#today').textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    const nOut = state.people.filter(p => openRecord(p.id)).length;
+    $('#outCount').textContent = nOut;
+    $('#statBox').classList.toggle('zero', nOut === 0);
+  }
+
+  // ---------- Personas ----------
+  function renderPeople(){
+    const q = $('#q').value;
+    const all = state.people;
+    const isOut = p => !!openRecord(p.id);
+    const nOut = all.filter(isOut).length;
+    $('#cTodos').textContent = all.length;
+    $('#cFuera').textContent = nOut;
+    $('#cDentro').textContent = all.length - nOut;
+
+    let list = all.filter(p => matches(p.name, q));
+    if (filter === 'fuera') list = list.filter(isOut);
+    else if (filter === 'dentro') list = list.filter(p => !isOut(p));
+    list.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+
+    const today = dayKey(new Date());
+    const qt = q.trim();
+    let html = '';
+    if (!all.length) {
+      html = `<div class="empty"><p><b>Todavía no hay personas.</b></p><p class="muted">Escribe un nombre completo arriba y toca <b>+ Agregar</b>, o pega una lista completa en <b>Ajustes</b>.</p></div>`;
+    } else if (!list.length) {
+      html = `<div class="empty"><p>No se encontró a nadie${qt ? ` con «${esc(qt)}»` : ''}${filter !== 'todos' ? ' en este filtro' : ''}.</p>` +
+             (qt ? `<button class="btn primary" data-act="addq">Agregar «${esc(qt)}»</button>` : '') + `</div>`;
+    } else {
+      for (const p of list) {
+        const r = openRecord(p.id);
+        const nToday = state.records.filter(x => x.personId === p.id && dayKey(x.out) === today).length;
+        const sub = r
+          ? `<span class="tag out">Afuera</span> desde ${fmtT(r.out)} · lleva ${dur(r.out)}`
+          : `<span class="tag in">En el evento</span>${nToday ? ` · ${nToday} ${nToday === 1 ? 'salida' : 'salidas'} hoy` : ''}`;
+        html += `<div class="person ${r ? 'is-out' : ''}">
+          <div class="info"><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></div>
+          <button class="more" data-act="edit" data-id="${p.id}" aria-label="Opciones de ${esc(p.name)}" title="Opciones">⋯</button>
+          <button class="btn ${r ? 'back' : 'go'}" data-act="${r ? 'back' : 'out'}" data-id="${p.id}">${r ? 'Entró' : 'Salida'}</button>
+        </div>`;
+      }
+    }
+    $('#people').innerHTML = html;
+    return list;
+  }
+
+  function afterAction(msg, undo){
+    $('#q').value = '';
+    renderAll();
+    toast(msg, undo);
+    if (canHover) $('#q').focus();
+  }
+  function registerOut(pid){
+    const p = getP(pid);
+    if (!p || openRecord(pid)) return;
+    const rec = { id: uid(), personId: pid, name: p.name, out: new Date().toISOString(), back: null };
+    state.records.push(rec);
+    save();
+    afterAction(`Salida: ${p.name} · ${fmtT(rec.out)}`, () => { state.records = state.records.filter(x => x.id !== rec.id); });
+  }
+  function registerBack(pid){
+    const r = openRecord(pid);
+    if (!r) return;
+    r.back = new Date().toISOString();
+    save();
+    afterAction(`Entró: ${r.name} · ${fmtT(r.back)} (estuvo afuera ${dur(r.out, r.back)})`, () => { r.back = null; });
+  }
+
+  function addPerson(name){
+    name = String(name).replace(/\s+/g, ' ').trim();
+    if (!name) return null;
+    const ex = state.people.find(p => norm(p.name) === norm(name));
+    if (ex) return { dup: ex };
+    const p = { id: uid(), name };
+    state.people.push(p);
+    return { p };
+  }
+  function addFromSearch(){
+    const qt = $('#q').value.trim();
+    if (!qt) { openAddModal(); return; }
+    const res = addPerson(qt);
+    if (!res) return;
+    if (res.dup) { toast(`${res.dup.name} ya está en la lista`); $('#q').value = res.dup.name; renderPeople(); return; }
+    save();
+    $('#q').value = res.p.name;
+    filter = 'todos'; syncChips();
+    renderAll();
+    toast(`Agregado: ${res.p.name}`);
+  }
+  function openAddModal(){
+    const b = modal(`<h3>Agregar persona</h3>
+      <label for="newName">Nombre completo (nombre y apellidos)</label>
+      <input type="text" id="newName" autocomplete="off" placeholder="Ej. Ana María López García">
+      <div class="err" id="addErr"></div>
+      <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="saveNew">Agregar</button></div>`);
+    const inp = b.querySelector('#newName');
+    const go = () => {
+      const res = addPerson(inp.value);
+      if (!res) { b.querySelector('#addErr').textContent = 'Escribe el nombre.'; return; }
+      if (res.dup) { b.querySelector('#addErr').textContent = `${res.dup.name} ya está en la lista.`; return; }
+      save(); closeModal(); renderAll(); toast(`Agregado: ${res.p.name}`);
+    };
+    b.querySelector('#saveNew').onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    setTimeout(() => inp.focus(), 50);
+  }
+
+  function openPersonModal(pid){
+    const p = getP(pid);
+    if (!p) return;
+    const recs = state.records.filter(r => r.personId === pid).sort((a, b) => b.out.localeCompare(a.out));
+    const today = dayKey(new Date());
+    const nToday = recs.filter(r => dayKey(r.out) === today).length;
+    const items = recs.slice(0, 8).map(r => {
+      const d = dayKey(r.out) === today ? 'Hoy' : new Date(r.out).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+      return `<li><span>${d}: ${fmtT(r.out)} → ${r.back ? fmtT(r.back) : '<span class="tag out">Afuera</span>'}</span><span class="muted">${dur(r.out, r.back)}</span></li>`;
+    }).join('');
+    const b = modal(`<h3>${esc(p.name)}</h3>
+      <div class="muted">${nToday} ${nToday === 1 ? 'salida' : 'salidas'} hoy · ${recs.length} en total</div>
+      ${items ? `<ul class="mini">${items}</ul>` : ''}
+      <label for="editName">Corregir nombre</label>
+      <input type="text" id="editName" value="${esc(p.name)}" autocomplete="off">
+      <div class="err" id="editErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="delP">Quitar de la lista</button>
+        <button class="btn" data-close>Cerrar</button>
+        <button class="btn primary" id="saveP">Guardar</button>
+      </div>`);
+    b.querySelector('#saveP').onclick = () => {
+      const v = b.querySelector('#editName').value.replace(/\s+/g, ' ').trim();
+      if (!v) { b.querySelector('#editErr').textContent = 'Escribe el nombre.'; return; }
+      const ex = state.people.find(x => x.id !== pid && norm(x.name) === norm(v));
+      if (ex) { b.querySelector('#editErr').textContent = 'Ya hay otra persona con ese nombre.'; return; }
+      p.name = v;
+      state.records.forEach(r => { if (r.personId === pid) r.name = v; });
+      save(); closeModal(); renderAll(); toast('Nombre actualizado');
+    };
+    b.querySelector('#delP').onclick = () => {
+      confirmBox(`Se quitará a ${p.name} de la lista. Sus registros del historial se conservan.`, 'Quitar', () => {
+        state.people = state.people.filter(x => x.id !== pid);
+        state.records.forEach(r => { if (r.personId === pid && !r.back) r.back = new Date().toISOString(); });
+        save(); renderAll(); toast(`Se quitó a ${p.name}`);
+      });
+    };
+  }
+
+  $('#people').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const id = btn.dataset.id, act = btn.dataset.act;
+    if (act === 'out') registerOut(id);
+    else if (act === 'back') registerBack(id);
+    else if (act === 'edit') openPersonModal(id);
+    else if (act === 'addq') addFromSearch();
+  });
+  $('#q').addEventListener('input', renderPeople);
+  $('#q').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const list = renderPeople();
+    if (list.length === 1) {
+      const p = list[0];
+      openRecord(p.id) ? registerBack(p.id) : registerOut(p.id);
+    } else if (!list.length && $('#q').value.trim()) {
+      addFromSearch();
+    }
+  });
+  $('#addBtn').addEventListener('click', addFromSearch);
+  function syncChips(){ root.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.f === filter)); }
+  root.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { filter = c.dataset.f; syncChips(); renderPeople(); }));
+
+  // ---------- Historial ----------
+  function histRows(){
+    const d = $('#hDate').value || dayKey(new Date());
+    const q = $('#hq').value;
+    return state.records.filter(r => dayKey(r.out) === d && matches(r.name, q)).sort((a, b) => b.out.localeCompare(a.out));
+  }
+  function renderHist(){
+    if (!$('#hDate').value) $('#hDate').value = dayKey(new Date());
+    const rows = histRows();
+    const still = rows.filter(r => !r.back).length;
+    $('#hSummary').textContent = rows.length
+      ? `${rows.length} ${rows.length === 1 ? 'salida' : 'salidas'} · ${still} siguen afuera`
+      : 'No hay registros en este día.';
+    $('#hBody').innerHTML = rows.map(r => `<tr class="${r.back ? '' : 'open'}">
+        <td>${esc(r.name)}</td>
+        <td class="t">${fmtT(r.out)}</td>
+        <td class="t">${r.back ? fmtT(r.back) : '<span class="tag out">Afuera</span>'}</td>
+        <td class="t">${dur(r.out, r.back)}</td>
+        <td><button class="link" data-rid="${r.id}">Editar</button></td>
+      </tr>`).join('');
+  }
+  $('#hDate').addEventListener('change', renderHist);
+  $('#hq').addEventListener('input', renderHist);
+  $('#hBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-rid]');
+    if (b) openRecordModal(b.dataset.rid);
+  });
+
+  function openRecordModal(rid){
+    const r = state.records.find(x => x.id === rid);
+    if (!r) return;
+    const b = modal(`<h3>${esc(r.name)}</h3>
+      <div class="muted">${new Date(r.out).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      <label for="eOut">Hora de salida</label>
+      <input type="time" id="eOut" value="${hhmm(r.out)}">
+      <label for="eBack">Hora de entrada (déjala vacía si sigue afuera)</label>
+      <input type="time" id="eBack" value="${r.back ? hhmm(r.back) : ''}">
+      <div class="err" id="eErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="delR">Borrar registro</button>
+        <button class="btn" data-close>Cancelar</button>
+        <button class="btn primary" id="saveR">Guardar</button>
+      </div>`);
+    b.querySelector('#saveR').onclick = () => {
+      const o = b.querySelector('#eOut').value, k = b.querySelector('#eBack').value;
+      const err = b.querySelector('#eErr');
+      if (!o) { err.textContent = 'Falta la hora de salida.'; return; }
+      const newOut = setTime(r.out, o);
+      let newBack = null;
+      if (k) {
+        newBack = setTime(r.out, k);
+        if (new Date(newBack) < new Date(newOut)) { err.textContent = 'La entrada no puede ser antes de la salida.'; return; }
+      } else {
+        const other = state.records.find(x => x.id !== r.id && x.personId === r.personId && !x.back);
+        if (other) { err.textContent = 'Esta persona ya tiene otra salida sin entrada. Pon la hora de entrada.'; return; }
+      }
+      r.out = newOut; r.back = newBack;
+      save(); closeModal(); renderAll(); toast('Registro actualizado');
+    };
+    b.querySelector('#delR').onclick = () => {
+      confirmBox(`Se borrará este registro de ${r.name} (${fmtT(r.out)}).`, 'Borrar', () => {
+        state.records = state.records.filter(x => x.id !== rid);
+        save(); renderAll(); toast('Registro borrado');
+      });
+    };
+  }
+
+  // ---------- Descargas ----------
+  function download(content, name, type){
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function csvCell(v){
+    v = String(v);
+    if (/^[=+\-@]/.test(v)) v = "'" + v;
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function exportCSV(rows, fname){
+    if (!rows.length) { toast('No hay registros para descargar'); return; }
+    const head = ['Fecha', 'Nombre completo', 'Hora de salida', 'Hora de entrada', 'Tiempo afuera (min)'];
+    const lines = [head].concat(rows.map(r => [
+      dayKey(r.out), r.name, fmtT(r.out),
+      r.back ? fmtT(r.back) : 'Sigue afuera',
+      r.back ? mins(r.out, r.back) : ''
+    ]));
+    const txt = lines.map(l => l.map(csvCell).join(',')).join('\r\n');
+    download('﻿' + txt, fname, 'text/csv;charset=utf-8');
+  }
+  $('#expDay').addEventListener('click', () => {
+    const rows = histRows().slice().sort((a, b) => a.out.localeCompare(b.out));
+    exportCSV(rows, `salidas-${$('#hDate').value}.csv`);
+  });
+  $('#expAll').addEventListener('click', () => {
+    const rows = state.records.slice().sort((a, b) => a.out.localeCompare(b.out));
+    exportCSV(rows, `salidas-todo-${dayKey(new Date())}.csv`);
+  });
+
+  // ---------- Ajustes ----------
+  $('#bulkAdd').addEventListener('click', () => {
+    const lines = $('#bulk').value.split(/\r?\n/);
+    let added = 0, dup = 0;
+    lines.forEach(l => { const r = addPerson(l); if (!r) return; if (r.dup) dup++; else added++; });
+    if (!added && !dup) { toast('Pega al menos un nombre'); return; }
+    save(); $('#bulk').value = ''; renderAll();
+    toast(`${added} ${added === 1 ? 'persona agregada' : 'personas agregadas'}${dup ? ` · ${dup} ya estaban` : ''}`);
+  });
+  $('#backup').addEventListener('click', () => {
+    download(JSON.stringify({ app: 'lista-salidas', version: 1, savedAt: new Date().toISOString(), ...state }, null, 2),
+      `respaldo-salidas-${dayKey(new Date())}.json`, 'application/json');
+  });
+  $('#restore').addEventListener('change', e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let d;
+      try { d = JSON.parse(rd.result); } catch (err) { toast('Ese archivo no es un respaldo válido'); return; }
+      if (!d || !Array.isArray(d.people) || !Array.isArray(d.records)) { toast('Ese archivo no es un respaldo válido'); return; }
+      confirmBox(`El respaldo tiene ${d.people.length} personas y ${d.records.length} registros. Reemplazará lo que hay ahora.`, 'Cargar respaldo', () => {
+        state = { people: d.people, records: d.records, imports: Array.isArray(d.imports) ? d.imports : state.imports };
+        save(); renderAll(); toast('Respaldo cargado');
+      });
+    };
+    rd.readAsText(f);
+  });
+  $('#clearHist').addEventListener('click', () => confirmBox('Se borrarán todas las salidas y entradas. Las personas se quedan en la lista.', 'Borrar historial', () => {
+    state.records = []; save(); renderAll(); toast('Historial borrado');
+  }));
+  $('#clearAll').addEventListener('click', () => confirmBox('Se borrarán todas las personas y todo el historial.', 'Borrar todo', () => {
+    state = { people: [], records: [], imports: state.imports }; save(); renderAll(); toast('Todo borrado');
+  }));
+
+  // ---------- Pestañas ----------
+  root.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+    root.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    ['personas', 'historial', 'ajustes'].forEach(t => { $('#tab-' + t).hidden = t !== b.dataset.tab; });
+    renderAll();
+  }));
+
+  // ---------- Participantes precargados ----------
+  const PRELOAD_ID = 'asistencia-18nov-2026';
+  const PRELOAD = ["López Salinas Fernando Daniel", "García Torres Luis Ángel", "Velázquez Rodríguez Fanny Aline", "López Reséndiz Johan", "Alcántara Fabián Belinda", "Gamez Garcia Edrick", "Milagros Fernanda Villarreal Coronado", "Villarreal Céspedes Josué Jonathan", "Montecinos Falfan Jehú Israel", "Palafox Vera Dulce Belen", "Villanueva Fierros Kendy", "Hernández Barroso Kevin Anthony", "Alonso Vázquez Jeshua Jafet", "Sarabia Cruz Estrella Arisbeth", "Villachavez Quiroz Oscar Adrián", "Lopez Arcos Diego Isaac", "Contreras Ramírez Dulce Sarai", "Gallardo Mendieta Anabel", "Apreza Flores Ricardo", "Anzures Sánchez Jesús Manuel", "Axel Castillo Nova", "Vidal Martinez Bryan Emmanuel", "Chávez Morales Karla Sofía", "Muñiz Mundo Angel Sebastián", "Garcia Del Manzano Pedro", "Vera Chávez Steiguer", "Jaimes Vega Alexis Josué", "América Belén Turijan Huerta", "Carrion Rivera Neptali Gabriel", "Platón Hernández Carlos Alberto", "Jiménez Solano Emiano", "Jiménez Almeraya Yahir", "Madiam Issui Barragán Vásquez", "Carrizal García Alexandra", "Gutiérrez González Ariel", "Vázquez Arcos José Fransisco", "Valero Cadenas Itzel", "Mancilla Mejia Shemejah", "Baltazar Rodriguez Yuliana", "Vázquez Aroche Jared Araham", "Valle Salvador Ángel Eduardo", "García Muñoz Jonathan Israel", "Roque Gonzalez Andrés Nohe", "Gerardo Manuel Antunez Eligio", "Libni Gemali González López", "Martínez Bustos Mariana", "De la Concha Villavicencio Roberto", "Rivera Camacho Jose Gabriel", "Martínez Rayo Kevin Esau", "Rocha Sánchez Oscar", "Gil Cano Diana Belen", "Anzurez Espino Monica Paola", "Pérez Espino Damarys Renata", "Sosa Xochimanca Pablo César", "Berlanga Cadena Angel Jesús", "Saavedra Miguel Alondra Graciela", "Sanchez Martinez Ruben", "Ortiz Flores Dulce Sarahi", "Campis Barreto Itamar", "Rivera Flores Dana Valeria", "Reyes Mejia Alexander", "Pinzón García Endor", "Vázquez Braco Jazmín Quetzalli", "Zapotitla García Jorge", "Camacho Mejia Jose Alejandro", "Plascencia Mora David Emiliano", "Aldana Ramírez Karol Esther", "Campos Nopio Ximena", "Del Rosario Quevedo Eugenio Gibet", "Rendon Sauza Fernando Isaac", "Fonseca Bravo José Noé", "Gonzalez Flores Alexis", "Gonzales Cuevas Ruben Axel", "Romero Vidal Angel Ivan", "Muñoz Guadarrama Carolina", "Diego Gael Rosas Vazquez", "Santoyo Anzures Samantha Lizbeth", "Shyrlin Alizze Cirilo Policarpo", "Huacre Molina Rodrigo Yair", "Mendoza Maldonado Jared", "Gómez Guerrero Orlando Hernán", "Luis Angel Hernandez Ramirez", "Juarez Palma Missael", "Estrada Cuevas Aldo Emmanuel", "Martínez Azalá Rubi Fernanda", "López Dionicio Jesús Francisco", "Hernández Núñez Miguel Antonio", "Torres Cheron Fernando", "García Monroy Yesenia Lizbeth", "Rodríguez López Carlos Jair", "Presas Guevara Tommy Manuel", "Sanchez Miranda Alan Emiliano", "Montiel Naranjo Marco Antonio", "Prado Aguilar Benjny Ramon", "Marcelino Morales Alisandro", "Annali Rojas Cortes", "Vazquez Arteaga Yareli Daniela", "Molina Velasco Perla Lizeth", "Vargas Ruiz Estrella", "Gómez Nava Mayra Azucena", "Molina Martinez Angela Natasha", "Estrada Hidalgo Ángel Adrián", "Flores Vega Emmanuel", "Antunez Eligio Jose Manuel", "Castillo Fraijo Jaime Zoram", "Tecla Martinez Marjori Yedani", "Villegas Santana Edwin Michell", "Rojas López Rocio Itzel", "Santa Ana Rodríguez Zareth Otoniel", "Flores Vilchis Ángel David", "Cruz Castillo Lorena Isabel", "Herrera Medina Karen", "Jurado Noriega Saúl", "Morales Martínez Andrea", "Martínez Dávila Alan Raúl", "Cortés Aguilar Hugo", "Cruz Hernández Irvin", "Cuenca Flores Verónica Yazmín", "Pedro Abel Juárez García", "Axel Leandro Coria Venegas", "Vázquez Rodríguez Kevin Fernando", "Rodrigo Camberos Oliver Uriel", "Lima Contreras Alejandro", "Sotelo Salazar Fernando", "Morellano Evaristo Abrham", "Campos Rodriguez Yelzy", "Alderente Lopez Luis Mayen", "Ayala Aldana Josue", "Tlatelpa Morales Raul Sabino"];
+  if (!Array.isArray(state.imports)) state.imports = [];
+  let preloadMsg = '';
+  if (!state.imports.includes(PRELOAD_ID)) {
+    let added = 0;
+    PRELOAD.forEach(n => { const r = addPerson(n); if (r && r.p) added++; });
+    state.imports.push(PRELOAD_ID);
+    save();
+    if (added) preloadMsg = `Se agregaron ${added} participantes a la lista`;
+  }
+
+  function renderAll(){ renderHeader(); renderPeople(); renderHist(); }
+  renderAll();
+  if (preloadMsg) toast(preloadMsg);
+  setInterval(() => { renderHeader(); renderPeople(); if (!$('#tab-historial').hidden) renderHist(); }, 30000);
+})(document.getElementById('h-salidas').shadowRoot);
+</script>
+<script>
+
+(function(root){
+  const $ = s => root.querySelector(s);
+  const KEY = 'staff-entrada-salida-v1';
+  const STAFF0 = ['Villanueva Lopez Keren Sarai', 'Vidal Navarrete Luis Antonio', 'Sanchez Gallardo Mario Alberto', 'Rodriguez Espino Miguel Angel', 'Salazar Rosas Tania Lizeth', 'Ojeda Aleman Michelle Fernanda', 'Camarillo Antunez Valeria', 'Vara Osorio Lesly', 'Castillo Ortega Zurisadai'];
+  let state = { people: STAFF0.map((n,i)=>({id:'s'+i,name:n})), records: [] };
+  let filter = 'todos';
+
+  // ---------- Guardado ----------
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.people) && Array.isArray(d.records)) state = d;
+    }
+  } catch (e) { $('#warn').hidden = false; }
+
+  function save(){
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { $('#warn').hidden = false; }
+  }
+
+  // ---------- Utilidades ----------
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const matches = (name, q) => {
+    const tokens = norm(q).split(' ').filter(Boolean);
+    const n = norm(name);
+    return tokens.every(t => n.includes(t));
+  };
+  const pad = n => String(n).padStart(2, '0');
+  const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); };
+  const fmtT = iso => iso ? new Date(iso).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '—';
+  const hhmm = iso => { const d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const setTime = (baseIso, t) => { const d = new Date(baseIso); const [h, m] = t.split(':').map(Number); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  const mins = (a, b) => Math.max(0, Math.round(((b ? new Date(b) : new Date()) - new Date(a)) / 60000));
+  const dur = (a, b) => { const t = mins(a, b); const h = Math.floor(t / 60), m = t % 60; return h ? `${h} h ${m} min` : `${m} min`; };
+  const getP = id => state.people.find(p => p.id === id);
+  const openRecord = pid => state.records.find(r => r.personId === pid && !r.back);
+  const canHover = window.matchMedia && matchMedia('(hover: hover)').matches;
+
+  // ---------- Avisos y ventanas ----------
+  let toastTimer;
+  function toast(msg, undo){
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>` + (undo ? '<button type="button">Deshacer</button>' : '');
+    if (undo) t.querySelector('button').onclick = () => { undo(); save(); renderAll(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
+  }
+  function modal(html){ $('#modalBox').innerHTML = html; $('#modal').hidden = false; return $('#modalBox'); }
+  function closeModal(){ $('#modal').hidden = true; $('#modalBox').innerHTML = ''; }
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+  function confirmBox(msg, okLabel, cb){
+    const b = modal(`<h3>¿Seguro?</h3><p>${esc(msg)}</p><div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn danger" id="okC">${esc(okLabel)}</button></div>`);
+    b.querySelector('#okC').onclick = () => { closeModal(); cb(); };
+  }
+
+  // ---------- Encabezado ----------
+  function renderHeader(){
+    const s = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('#today').textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    const nOut = state.people.filter(p => openRecord(p.id)).length;
+    $('#outCount').textContent = nOut;
+    $('#statBox').classList.toggle('zero', nOut === 0);
+  }
+
+  // ---------- Personas ----------
+  function renderPeople(){
+    const q = $('#q').value;
+    const all = state.people;
+    const isOut = p => !!openRecord(p.id);
+    const nOut = all.filter(isOut).length;
+    $('#cTodos').textContent = all.length;
+    $('#cFuera').textContent = nOut;
+    $('#cDentro').textContent = all.length - nOut;
+
+    let list = all.filter(p => matches(p.name, q));
+    if (filter === 'fuera') list = list.filter(isOut);
+    else if (filter === 'dentro') list = list.filter(p => !isOut(p));
+    list.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+
+    const today = dayKey(new Date());
+    const qt = q.trim();
+    let html = '';
+    if (!all.length) {
+      html = `<div class="empty"><p><b>Todavía no hay personas.</b></p><p class="muted">Escribe un nombre completo arriba y toca <b>+ Agregar</b>, o pega una lista completa en <b>Ajustes</b>.</p></div>`;
+    } else if (!list.length) {
+      html = `<div class="empty"><p>No se encontró a nadie${qt ? ` con «${esc(qt)}»` : ''}${filter !== 'todos' ? ' en este filtro' : ''}.</p>` +
+             (qt ? `<button class="btn primary" data-act="addq">Agregar «${esc(qt)}»</button>` : '') + `</div>`;
+    } else {
+      for (const p of list) {
+        const r = openRecord(p.id);
+        const nToday = state.records.filter(x => x.personId === p.id && dayKey(x.out) === today).length;
+        const sub = r
+          ? `<span class="tag out">En turno</span> desde ${fmtT(r.out)} · lleva ${dur(r.out)}`
+          : `<span class="tag in">Fuera de turno</span>${nToday ? ` · ${nToday} ${nToday === 1 ? 'turno' : 'turnos'} hoy` : ''}`;
+        html += `<div class="person ${r ? 'is-out' : ''}">
+          <div class="info"><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></div>
+          <button class="more" data-act="edit" data-id="${p.id}" aria-label="Opciones de ${esc(p.name)}" title="Opciones">⋯</button>
+          <button class="btn ${r ? 'back' : 'go'}" data-act="${r ? 'back' : 'out'}" data-id="${p.id}">${r ? 'Salida' : 'Entrada'}</button>
+        </div>`;
+      }
+    }
+    $('#people').innerHTML = html;
+    return list;
+  }
+
+  function afterAction(msg, undo){
+    $('#q').value = '';
+    renderAll();
+    toast(msg, undo);
+    if (canHover) $('#q').focus();
+  }
+  function registerOut(pid){
+    const p = getP(pid);
+    if (!p || openRecord(pid)) return;
+    const rec = { id: uid(), personId: pid, name: p.name, out: new Date().toISOString(), back: null };
+    state.records.push(rec);
+    save();
+    afterAction(`Entrada: ${p.name} · ${fmtT(rec.out)}`, () => { state.records = state.records.filter(x => x.id !== rec.id); });
+  }
+  function registerBack(pid){
+    const r = openRecord(pid);
+    if (!r) return;
+    r.back = new Date().toISOString();
+    save();
+    afterAction(`Salida: ${r.name} · ${fmtT(r.back)} (estuvo en turno ${dur(r.out, r.back)})`, () => { r.back = null; });
+  }
+
+  function addPerson(name){
+    name = String(name).replace(/\s+/g, ' ').trim();
+    if (!name) return null;
+    const ex = state.people.find(p => norm(p.name) === norm(name));
+    if (ex) return { dup: ex };
+    const p = { id: uid(), name };
+    state.people.push(p);
+    return { p };
+  }
+  function addFromSearch(){
+    const qt = $('#q').value.trim();
+    if (!qt) { openAddModal(); return; }
+    const res = addPerson(qt);
+    if (!res) return;
+    if (res.dup) { toast(`${res.dup.name} ya está en la lista`); $('#q').value = res.dup.name; renderPeople(); return; }
+    save();
+    $('#q').value = res.p.name;
+    filter = 'todos'; syncChips();
+    renderAll();
+    toast(`Agregado: ${res.p.name}`);
+  }
+  function openAddModal(){
+    const b = modal(`<h3>Agregar persona</h3>
+      <label for="newName">Nombre completo (nombre y apellidos)</label>
+      <input type="text" id="newName" autocomplete="off" placeholder="Ej. Ana María López García">
+      <div class="err" id="addErr"></div>
+      <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="saveNew">Agregar</button></div>`);
+    const inp = b.querySelector('#newName');
+    const go = () => {
+      const res = addPerson(inp.value);
+      if (!res) { b.querySelector('#addErr').textContent = 'Escribe el nombre.'; return; }
+      if (res.dup) { b.querySelector('#addErr').textContent = `${res.dup.name} ya está en la lista.`; return; }
+      save(); closeModal(); renderAll(); toast(`Agregado: ${res.p.name}`);
+    };
+    b.querySelector('#saveNew').onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    setTimeout(() => inp.focus(), 50);
+  }
+
+  function openPersonModal(pid){
+    const p = getP(pid);
+    if (!p) return;
+    const recs = state.records.filter(r => r.personId === pid).sort((a, b) => b.out.localeCompare(a.out));
+    const today = dayKey(new Date());
+    const nToday = recs.filter(r => dayKey(r.out) === today).length;
+    const items = recs.slice(0, 8).map(r => {
+      const d = dayKey(r.out) === today ? 'Hoy' : new Date(r.out).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+      return `<li><span>${d}: ${fmtT(r.out)} → ${r.back ? fmtT(r.back) : '<span class="tag out">En turno</span>'}</span><span class="muted">${dur(r.out, r.back)}</span></li>`;
+    }).join('');
+    const b = modal(`<h3>${esc(p.name)}</h3>
+      <div class="muted">${nToday} ${nToday === 1 ? 'turno' : 'turnos'} hoy · ${recs.length} en total</div>
+      ${items ? `<ul class="mini">${items}</ul>` : ''}
+      <label for="editName">Corregir nombre</label>
+      <input type="text" id="editName" value="${esc(p.name)}" autocomplete="off">
+      <div class="err" id="editErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="delP">Quitar de la lista</button>
+        <button class="btn" data-close>Cerrar</button>
+        <button class="btn primary" id="saveP">Guardar</button>
+      </div>`);
+    b.querySelector('#saveP').onclick = () => {
+      const v = b.querySelector('#editName').value.replace(/\s+/g, ' ').trim();
+      if (!v) { b.querySelector('#editErr').textContent = 'Escribe el nombre.'; return; }
+      const ex = state.people.find(x => x.id !== pid && norm(x.name) === norm(v));
+      if (ex) { b.querySelector('#editErr').textContent = 'Ya hay otra persona con ese nombre.'; return; }
+      p.name = v;
+      state.records.forEach(r => { if (r.personId === pid) r.name = v; });
+      save(); closeModal(); renderAll(); toast('Nombre actualizado');
+    };
+    b.querySelector('#delP').onclick = () => {
+      confirmBox(`Se quitará a ${p.name} de la lista. Sus registros del historial se conservan.`, 'Quitar', () => {
+        state.people = state.people.filter(x => x.id !== pid);
+        state.records.forEach(r => { if (r.personId === pid && !r.back) r.back = new Date().toISOString(); });
+        save(); renderAll(); toast(`Se quitó a ${p.name}`);
+      });
+    };
+  }
+
+  $('#people').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const id = btn.dataset.id, act = btn.dataset.act;
+    if (act === 'out') registerOut(id);
+    else if (act === 'back') registerBack(id);
+    else if (act === 'edit') openPersonModal(id);
+    else if (act === 'addq') addFromSearch();
+  });
+  $('#q').addEventListener('input', renderPeople);
+  $('#q').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const list = renderPeople();
+    if (list.length === 1) {
+      const p = list[0];
+      openRecord(p.id) ? registerBack(p.id) : registerOut(p.id);
+    } else if (!list.length && $('#q').value.trim()) {
+      addFromSearch();
+    }
+  });
+  $('#addBtn').addEventListener('click', addFromSearch);
+  function syncChips(){ root.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.f === filter)); }
+  root.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { filter = c.dataset.f; syncChips(); renderPeople(); }));
+
+  // ---------- Historial ----------
+  function histRows(){
+    const d = $('#hDate').value || dayKey(new Date());
+    const q = $('#hq').value;
+    return state.records.filter(r => dayKey(r.out) === d && matches(r.name, q)).sort((a, b) => b.out.localeCompare(a.out));
+  }
+  function renderHist(){
+    if (!$('#hDate').value) $('#hDate').value = dayKey(new Date());
+    const rows = histRows();
+    const still = rows.filter(r => !r.back).length;
+    $('#hSummary').textContent = rows.length
+      ? `${rows.length} ${rows.length === 1 ? 'turno' : 'turnos'} · ${still} siguen en turno`
+      : 'No hay registros en este día.';
+    $('#hBody').innerHTML = rows.map(r => `<tr class="${r.back ? '' : 'open'}">
+        <td>${esc(r.name)}</td>
+        <td class="t">${fmtT(r.out)}</td>
+        <td class="t">${r.back ? fmtT(r.back) : '<span class="tag out">En turno</span>'}</td>
+        <td class="t">${dur(r.out, r.back)}</td>
+        <td><button class="link" data-rid="${r.id}">Editar</button></td>
+      </tr>`).join('');
+  }
+  $('#hDate').addEventListener('change', renderHist);
+  $('#hq').addEventListener('input', renderHist);
+  $('#hBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-rid]');
+    if (b) openRecordModal(b.dataset.rid);
+  });
+
+  function openRecordModal(rid){
+    const r = state.records.find(x => x.id === rid);
+    if (!r) return;
+    const b = modal(`<h3>${esc(r.name)}</h3>
+      <div class="muted">${new Date(r.out).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      <label for="eOut">Hora de entrada</label>
+      <input type="time" id="eOut" value="${hhmm(r.out)}">
+      <label for="eBack">Hora de salida (déjala vacía si sigue en turno)</label>
+      <input type="time" id="eBack" value="${r.back ? hhmm(r.back) : ''}">
+      <div class="err" id="eErr"></div>
+      <div class="actions">
+        <button class="btn ghost-danger left" id="delR">Borrar registro</button>
+        <button class="btn" data-close>Cancelar</button>
+        <button class="btn primary" id="saveR">Guardar</button>
+      </div>`);
+    b.querySelector('#saveR').onclick = () => {
+      const o = b.querySelector('#eOut').value, k = b.querySelector('#eBack').value;
+      const err = b.querySelector('#eErr');
+      if (!o) { err.textContent = 'Falta la hora de entrada.'; return; }
+      const newOut = setTime(r.out, o);
+      let newBack = null;
+      if (k) {
+        newBack = setTime(r.out, k);
+        if (new Date(newBack) < new Date(newOut)) { err.textContent = 'La salida no puede ser antes de la entrada.'; return; }
+      } else {
+        const other = state.records.find(x => x.id !== r.id && x.personId === r.personId && !x.back);
+        if (other) { err.textContent = 'Esta persona ya tiene otra entrada sin salida. Pon la hora de salida.'; return; }
+      }
+      r.out = newOut; r.back = newBack;
+      save(); closeModal(); renderAll(); toast('Registro actualizado');
+    };
+    b.querySelector('#delR').onclick = () => {
+      confirmBox(`Se borrará este registro de ${r.name} (${fmtT(r.out)}).`, 'Borrar', () => {
+        state.records = state.records.filter(x => x.id !== rid);
+        save(); renderAll(); toast('Registro borrado');
+      });
+    };
+  }
+
+  // ---------- Descargas ----------
+  function download(content, name, type){
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function csvCell(v){
+    v = String(v);
+    if (/^[=+\-@]/.test(v)) v = "'" + v;
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function exportCSV(rows, fname){
+    if (!rows.length) { toast('No hay registros para descargar'); return; }
+    const head = ['Fecha', 'Nombre completo', 'Hora de entrada', 'Hora de salida', 'Tiempo en turno (min)'];
+    const lines = [head].concat(rows.map(r => [
+      dayKey(r.out), r.name, fmtT(r.out),
+      r.back ? fmtT(r.back) : 'Sigue en turno',
+      r.back ? mins(r.out, r.back) : ''
+    ]));
+    const txt = lines.map(l => l.map(csvCell).join(',')).join('\r\n');
+    download('﻿' + txt, fname, 'text/csv;charset=utf-8');
+  }
+  $('#expDay').addEventListener('click', () => {
+    const rows = histRows().slice().sort((a, b) => a.out.localeCompare(b.out));
+    exportCSV(rows, `staff-${$('#hDate').value}.csv`);
+  });
+  $('#expAll').addEventListener('click', () => {
+    const rows = state.records.slice().sort((a, b) => a.out.localeCompare(b.out));
+    exportCSV(rows, `staff-todo-${dayKey(new Date())}.csv`);
+  });
+
+  // ---------- Ajustes ----------
+  $('#bulkAdd').addEventListener('click', () => {
+    const lines = $('#bulk').value.split(/\r?\n/);
+    let added = 0, dup = 0;
+    lines.forEach(l => { const r = addPerson(l); if (!r) return; if (r.dup) dup++; else added++; });
+    if (!added && !dup) { toast('Pega al menos un nombre'); return; }
+    save(); $('#bulk').value = ''; renderAll();
+    toast(`${added} ${added === 1 ? 'persona agregada' : 'personas agregadas'}${dup ? ` · ${dup} ya estaban` : ''}`);
+  });
+  $('#backup').addEventListener('click', () => {
+    download(JSON.stringify({ app: 'lista-salidas', version: 1, savedAt: new Date().toISOString(), ...state }, null, 2),
+      `respaldo-staff-${dayKey(new Date())}.json`, 'application/json');
+  });
+  $('#restore').addEventListener('change', e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let d;
+      try { d = JSON.parse(rd.result); } catch (err) { toast('Ese archivo no es un respaldo válido'); return; }
+      if (!d || !Array.isArray(d.people) || !Array.isArray(d.records)) { toast('Ese archivo no es un respaldo válido'); return; }
+      confirmBox(`El respaldo tiene ${d.people.length} personas y ${d.records.length} registros. Reemplazará lo que hay ahora.`, 'Cargar respaldo', () => {
+        state = { people: d.people, records: d.records, imports: Array.isArray(d.imports) ? d.imports : state.imports };
+        save(); renderAll(); toast('Respaldo cargado');
+      });
+    };
+    rd.readAsText(f);
+  });
+  $('#clearHist').addEventListener('click', () => confirmBox('Se borrarán todos los registros de entrada y salida. Las personas se quedan en la lista.', 'Borrar historial', () => {
+    state.records = []; save(); renderAll(); toast('Historial borrado');
+  }));
+  $('#clearAll').addEventListener('click', () => confirmBox('Se borrarán todas las personas y todo el historial.', 'Borrar todo', () => {
+    state = { people: [], records: [], imports: state.imports }; save(); renderAll(); toast('Todo borrado');
+  }));
+
+  // ---------- Pestañas ----------
+  root.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+    root.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    ['personas', 'historial', 'ajustes'].forEach(t => { $('#tab-' + t).hidden = t !== b.dataset.tab; });
+    renderAll();
+  }));
+
+  // ---------- Participantes precargados ----------
+  const PRELOAD_ID = 'asistencia-18nov-2026';
+  const PRELOAD = [];
+  if (!Array.isArray(state.imports)) state.imports = [];
+  let preloadMsg = '';
+  if (!state.imports.includes(PRELOAD_ID)) {
+    let added = 0;
+    PRELOAD.forEach(n => { const r = addPerson(n); if (r && r.p) added++; });
+    state.imports.push(PRELOAD_ID);
+    save();
+    if (added) preloadMsg = `Se agregaron ${added} participantes a la lista`;
+  }
+
+  function renderAll(){ renderHeader(); renderPeople(); renderHist(); }
+  renderAll();
+  if (preloadMsg) toast(preloadMsg);
+  setInterval(() => { renderHeader(); renderPeople(); if (!$('#tab-historial').hidden) renderHist(); }, 30000);
+})(document.getElementById('h-staff').shadowRoot);
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+// ====== PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Paso de "Registrar app web") ======
+const firebaseConfig = {
+  apiKey: "https://registrohack-default-rtdb.firebaseio.com/",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+// =================================================================================
+
+const configured = !firebaseConfig.apiKey.startsWith("PEGA");
+const db = configured ? getFirestore(initializeApp(firebaseConfig)) : null;
+const $ = s => document.querySelector(s);
+const ls = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const pad = n => String(n).padStart(2, '0');
+const dk = iso => { const x = new Date(iso); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); };
+
+function collect(){
+  const out = [];
+  const L = ls('pasar-lista-v1'), S = ls('lista-salidas-regresos-v1'), T = ls('staff-entrada-salida-v1');
+  if (L && L.teams) {
+    const who = {};
+    L.teams.forEach(t => {
+      out.push(['equipos', t.id, { nombre: t.name, integrantes: t.members.map(m => ({ nombre: m.name, carrera: m.career || '' })) }]);
+      t.members.forEach(m => { const k = norm(m.name); (who[k] = who[k] || { nombre: m.name, equipos: [] }).equipos.push(t.name); });
+    });
+    Object.entries(L.att || {}).forEach(([day, d]) => Object.entries(d).forEach(([k, a]) => {
+      const p = who[k] || { nombre: k, equipos: [] };
+      out.push(['asistencia', day + '_' + k.replace(/[^a-z0-9]+/g, '_'), { fecha: day, nombre: p.nombre, equipos: p.equipos, estado: a.s === 'P' ? 'Presente' : 'Falta', hora: a.t || null }]);
+    }));
+  }
+  if (S) {
+    (S.people || []).forEach(p => out.push(['salidas_personas', p.id, { nombre: p.name }]));
+    (S.records || []).forEach(r => out.push(['salidas', r.id, { personaId: r.personId, nombre: r.name, fecha: dk(r.out), salida: r.out, entrada: r.back || null }]));
+  }
+  if (T) {
+    (T.people || []).forEach(p => out.push(['staff', p.id, { nombre: p.name }]));
+    (T.records || []).forEach(r => out.push(['staff_registros', r.id, { personaId: r.personId, nombre: r.name, fecha: dk(r.out), entrada: r.out, salida: r.back || null }]));
+  }
+  return out;
+}
+
+let tm;
+function say(msg, ms = 5000){ const g = $('#gst'); g.textContent = msg; g.hidden = false; clearTimeout(tm); if (ms) tm = setTimeout(() => g.hidden = true, ms); }
+
+$('#upBtn').addEventListener('click', async () => {
+  if (!configured) { say('Falta pegar la configuración de Firebase en el archivo (busca "PEGA AQUÍ").', 8000); return; }
+  const items = collect();
+  if (!items.length) { say('No hay información para subir.'); return; }
+  const btn = $('#upBtn'); btn.disabled = true;
+  try {
+    for (let i = 0; i < items.length; i += 400) {
+      say(`Subiendo… ${Math.min(i + 400, items.length)} de ${items.length}`, 0);
+      const b = writeBatch(db);
+      items.slice(i, i + 400).forEach(([c, id, d]) => b.set(doc(db, c, id), d, { merge: true }));
+      await b.commit();
+    }
+    say(`✓ Subido a Firebase: ${items.length} registros (${new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })})`);
+  } catch (e) {
+    say('No se pudo subir: ' + (e.code || e.message), 9000);
+    console.error(e);
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
