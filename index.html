@@ -22,6 +22,7 @@
   <button data-app="lista" class="active">Asistencia</button>
   <button data-app="salidas">Salidas</button>
   <button data-app="staff">Staff</button>
+  <button data-app="nube">☁ Nube</button>
   <span class="sp"></span>
   <button id="upBtn" title="Sube todo a Firebase">☁ Subir</button>
 </nav>
@@ -30,6 +31,7 @@
 <div class="host" id="h-lista"></div>
 <div class="host" id="h-salidas" hidden></div>
 <div class="host" id="h-staff" hidden></div>
+<div class="host" id="h-nube" hidden></div>
 
 <template id="tpl-lista"><style>
   :host{
@@ -546,6 +548,53 @@
 <div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
 
 </div></template>
+
+<template id="tpl-nube"><style>
+  :host{display:block}
+  *{box-sizing:border-box}
+  .app{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#f4f6f8;color:#18202b;font-size:15px;line-height:1.4;min-height:calc(100vh - 48px);padding:14px 12px 90px}
+  .wrap{max-width:980px;margin:0 auto}
+  .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  h1{font-size:20px;margin:0;flex:1;min-width:160px}
+  .btn{border:1px solid #e4e7ec;background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn:hover{filter:brightness(.97)}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .live{display:flex;align-items:center;gap:6px;font-size:14px;color:#667085;cursor:pointer}
+  .dot{width:9px;height:9px;border-radius:50%;background:#98a2b3;display:inline-block}
+  .dot.on{background:#1b7f3b;box-shadow:0 0 0 3px #e8f6ed}
+  .meta{font-size:13px;color:#667085;margin-bottom:8px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+  .chip{border:1px solid #e4e7ec;background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit;font-size:14px;font-weight:600;color:#667085}
+  .chip span{opacity:.75;margin-left:4px}
+  .chip.active{background:#18202b;border-color:#18202b;color:#fff}
+  input[type=search]{width:100%;padding:11px 14px;border:1px solid #e4e7ec;border-radius:10px;background:#fff;font:inherit;outline:none;margin-bottom:12px}
+  input[type=search]:focus{border-color:#1f5fd1;box-shadow:0 0 0 3px rgba(31,95,209,.15)}
+  .note{border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+  .note.warn{background:#fff4e5;color:#8a4b00;border:1px solid #f5d199}
+  .note.err{background:#fdecec;color:#c62828;border:1px solid #f1c4c4}
+  .tablewrap{background:#fff;border:1px solid #e4e7ec;border-radius:12px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:480px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #e4e7ec;font-size:14px;vertical-align:top}
+  th{background:#f8f9fb;font-size:12px;color:#667085;font-weight:700;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+  tr:last-child td{border-bottom:0}
+  .empty{text-align:center;padding:32px 16px;color:#667085}
+  .tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .tag.ok{background:#e8f6ed;color:#1b7f3b}
+  .tag.no{background:#fdecec;color:#c62828}
+  .sub{color:#667085;font-size:13px}
+</style><div class="app"><div class="wrap">
+  <div class="bar">
+    <h1>Datos en Firebase</h1>
+    <label class="live"><input type="checkbox" id="live" checked> <i class="dot" id="dot"></i> En vivo</label>
+    <button class="btn" id="refresh">↻ Actualizar</button>
+    <button class="btn" id="dl">⬇ Descargar JSON</button>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div id="msg"></div>
+  <div class="chips" id="chips"></div>
+  <input type="search" id="q" placeholder="Buscar en esta colección…">
+  <div class="tablewrap"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+</div></div></template>
 
 <script>
 document.querySelectorAll('.host').forEach(h=>{
@@ -1686,7 +1735,7 @@ document.querySelectorAll('#gnav [data-app]').forEach(b=>b.addEventListener('cli
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 // ====== CONFIGURACIÓN DE FIREBASE (app web + Realtime Database) ======
 const firebaseConfig = {
@@ -1749,12 +1798,122 @@ $('#upBtn').addEventListener('click', async () => {
       await set(ref(db, `${collection}/${id}`), data);
     }
     say(`✓ Subido a Firebase Realtime Database: ${items.length} registros (${new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })})`);
+    if (!liveOn) loadAll();
   } catch (e) {
     say('No se pudo subir: ' + (e.code || e.message), 9000);
     console.error(e);
   }
   btn.disabled = false;
 });
+
+// ====================== VISOR DE DATOS EN FIREBASE ======================
+const cloud = document.getElementById('h-nube').shadowRoot;
+const cq = s => cloud.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const isoRe = /^\d{4}-\d{2}-\d{2}T/;
+const fmtDT = v => {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'number' || isoRe.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d)) return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' });
+  }
+  return String(v);
+};
+const fmtTime = v => {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'number' || isoRe.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d)) return d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' });
+  }
+  return String(v);
+};
+const tag = v => v === 'Presente' ? '<span class="tag ok">Presente</span>' : v === 'Falta' ? '<span class="tag no">Falta</span>' : esc(v ?? '—');
+
+// Colecciones que sube este archivo y cómo mostrarlas.
+// h: encabezado · v: texto plano (para buscar/ordenar) · html: (opcional) cómo dibujarlo
+const COLLECTIONS = {
+  asistencia: { label: 'Asistencia', sort: r => (r.fecha || '') + (r.nombre || ''), desc: true, cols: [
+    { h: 'Fecha', v: r => r.fecha },
+    { h: 'Nombre', v: r => r.nombre },
+    { h: 'Equipo(s)', v: r => (r.equipos || []).join(', ') },
+    { h: 'Estado', v: r => r.estado, html: r => tag(r.estado) },
+    { h: 'Hora', v: r => fmtTime(r.hora) } ] },
+  equipos: { label: 'Equipos', sort: r => r.nombre || '', cols: [
+    { h: 'Equipo', v: r => r.nombre },
+    { h: 'Integrantes', v: r => (r.integrantes || []).length },
+    { h: 'Detalle', v: r => (r.integrantes || []).map(m => m.nombre).join(' · '), html: r => (r.integrantes || []).map(m => `${esc(m.nombre)}${m.carrera ? ` <span class="sub">(${esc(m.carrera)})</span>` : ''}`).join('<br>') } ] },
+  salidas: { label: 'Salidas', sort: r => r.salida || '', desc: true, cols: [
+    { h: 'Nombre', v: r => r.nombre },
+    { h: 'Fecha', v: r => r.fecha },
+    { h: 'Salida', v: r => fmtTime(r.salida) },
+    { h: 'Regreso', v: r => fmtTime(r.entrada) } ] },
+  salidas_personas: { label: 'Personas (salidas)', sort: r => r.nombre || '', cols: [ { h: 'Nombre', v: r => r.nombre } ] },
+  staff_registros: { label: 'Staff · registros', sort: r => r.entrada || '', desc: true, cols: [
+    { h: 'Nombre', v: r => r.nombre },
+    { h: 'Fecha', v: r => r.fecha },
+    { h: 'Entrada', v: r => fmtTime(r.entrada) },
+    { h: 'Salida', v: r => fmtTime(r.salida) } ] },
+  staff: { label: 'Staff · personas', sort: r => r.nombre || '', cols: [ { h: 'Nombre', v: r => r.nombre } ] }
+};
+
+let cloudData = {}, cloudErr = {}, cur = 'asistencia', liveOn = true, unsubs = [], lastSync = null;
+const asRows = val => !val ? [] : (Array.isArray(val) ? val.map((v, i) => [String(i), v]) : Object.entries(val)).filter(([, v]) => v && typeof v === 'object').map(([id, v]) => ({ _id: id, ...v }));
+
+function renderCloud(){
+  const names = Object.keys(COLLECTIONS);
+  cq('#chips').innerHTML = names.map(n => `<button class="chip${n === cur ? ' active' : ''}" data-c="${n}">${esc(COLLECTIONS[n].label)}<span>${asRows(cloudData[n]).length}</span></button>`).join('');
+  cq('#msg').innerHTML = !configured
+    ? '<div class="note warn">Falta pegar la configuración de Firebase en el archivo (busca "PEGA AQUÍ").</div>'
+    : Object.entries(cloudErr).map(([n, e]) => `<div class="note err">No se pudo leer <b>${esc(n)}</b>: ${esc(e)}. Revisa las reglas de lectura de tu Realtime Database.</div>`).join('');
+  cq('#meta').textContent = lastSync ? `Última lectura: ${lastSync.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}` : '';
+
+  const def = COLLECTIONS[cur];
+  const term = norm(cq('#q').value || '');
+  let rows = asRows(cloudData[cur]);
+  rows.sort((a, b) => { const x = def.sort(a), y = def.sort(b); return (x < y ? -1 : x > y ? 1 : 0) * (def.desc ? -1 : 1); });
+  if (term) rows = rows.filter(r => norm(def.cols.map(c => c.v(r)).join(' ')) .includes(term));
+  cq('#th').innerHTML = '<tr>' + def.cols.map(c => `<th>${esc(c.h)}</th>`).join('') + '</tr>';
+  const MAX = 500, shown = rows.slice(0, MAX);
+  cq('#tb').innerHTML = shown.length
+    ? shown.map(r => '<tr>' + def.cols.map(c => `<td>${c.html ? c.html(r) : esc(c.v(r) ?? '—')}</td>`).join('') + '</tr>').join('') +
+      (rows.length > MAX ? `<tr><td colspan="${def.cols.length}" class="empty">Mostrando ${MAX} de ${rows.length}. Usa el buscador para filtrar.</td></tr>` : '')
+    : `<tr><td colspan="${def.cols.length}" class="empty">${configured ? (term ? 'Sin resultados para esa búsqueda.' : 'No hay datos en esta colección todavía.') : '—'}</td></tr>`;
+}
+
+async function loadAll(){
+  if (!configured) { renderCloud(); return; }
+  const b = cq('#refresh'); b.disabled = true;
+  await Promise.all(Object.keys(COLLECTIONS).map(async n => {
+    try { cloudData[n] = (await get(ref(db, n))).val(); delete cloudErr[n]; }
+    catch (e) { cloudErr[n] = e.code || e.message; }
+  }));
+  lastSync = new Date(); b.disabled = false; renderCloud();
+}
+
+function setLive(on){
+  liveOn = on;
+  unsubs.forEach(u => u()); unsubs = [];
+  cq('#dot').classList.toggle('on', on && configured);
+  if (!on || !configured) return;
+  Object.keys(COLLECTIONS).forEach(n => {
+    unsubs.push(onValue(ref(db, n),
+      snap => { cloudData[n] = snap.val(); delete cloudErr[n]; lastSync = new Date(); renderCloud(); },
+      e => { cloudErr[n] = e.code || e.message; renderCloud(); }));
+  });
+}
+
+cq('#chips').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) { cur = b.dataset.c; cq('#q').value = ''; renderCloud(); } });
+cq('#q').addEventListener('input', renderCloud);
+cq('#refresh').addEventListener('click', loadAll);
+cq('#live').addEventListener('change', e => setLive(e.target.checked));
+cq('#dl').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(cloudData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `firebase-${dk(new Date())}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+renderCloud();
+setLive(true);
 </script>
 </body>
 </html>
