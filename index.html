@@ -1686,21 +1686,31 @@ document.querySelectorAll('#gnav [data-app]').forEach(b=>b.addEventListener('cli
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
-// ====== PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Paso de "Registrar app web") ======
+// ====== CONFIGURACIÓN DE FIREBASE (app web + Realtime Database) ======
 const firebaseConfig = {
-  apiKey: "https://registrohack-default-rtdb.firebaseio.com/",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+
+  apiKey: "AIzaSyDIvU384SOt41VDMtInAordoho2Zjh26Jk",
+
+  authDomain: "registrohack.firebaseapp.com",
+
+  databaseURL: "https://registrohack-default-rtdb.firebaseio.com",
+
+  projectId: "registrohack",
+
+  storageBucket: "registrohack.firebasestorage.app",
+
+  messagingSenderId: "914537044572",
+
+  appId: "1:914537044572:web:ae505aa306aad550596499"
+
 };
-// =================================================================================
+
+// ====================================================================
 
 const configured = !firebaseConfig.apiKey.startsWith("PEGA");
-const db = configured ? getFirestore(initializeApp(firebaseConfig)) : null;
+const db = configured ? getDatabase(initializeApp(firebaseConfig)) : null;
 const $ = s => document.querySelector(s);
 const ls = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -1741,13 +1751,13 @@ $('#upBtn').addEventListener('click', async () => {
   if (!items.length) { say('No hay información para subir.'); return; }
   const btn = $('#upBtn'); btn.disabled = true;
   try {
-    for (let i = 0; i < items.length; i += 400) {
-      say(`Subiendo… ${Math.min(i + 400, items.length)} de ${items.length}`, 0);
-      const b = writeBatch(db);
-      items.slice(i, i + 400).forEach(([c, id, d]) => b.set(doc(db, c, id), d, { merge: true }));
-      await b.commit();
+    for (let i = 0; i < items.length; i++) {
+      const [collection, id, data] = items[i];
+      say(`Subiendo… ${i + 1} de ${items.length}`, 0);
+      // Realtime Database almacena estos registros bajo rutas /coleccion/id.
+      await set(ref(db, `${collection}/${id}`), data);
     }
-    say(`✓ Subido a Firebase: ${items.length} registros (${new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })})`);
+    say(`✓ Subido a Firebase Realtime Database: ${items.length} registros (${new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })})`);
   } catch (e) {
     say('No se pudo subir: ' + (e.code || e.message), 9000);
     console.error(e);
